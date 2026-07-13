@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+@theme {
+  --font-sans: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+
+  /* NOVARA brand colors */
+  --color-brand-white: #FFFFFF;
+  --color-brand-black: #1A1A1A;
+  --color-brand-heather: #D1D1C4;
+  --color-brand-sand: #D4C5A9;
+  --color-brand-forest: #2D5A27;
+  --color-brand-navy: #1B2A4A;
+  --color-brand-burgundy: #6E2C3D;
+  --color-brand-baby-blue: #A8D1E7;
+  --color-brand-light-pink: #F4C2C2;
+  --color-brand-gray-100: #F5F5F0;
+  --color-brand-gray-200: #E8E8E0;
+  --color-brand-gray-300: #C8C8BE;
+  --color-brand-gray-400: #9C9C94;
+  --color-brand-gray-500: #70706A;
+  --color-brand-gray-600: #4A4A46;
+  --color-brand-gray-700: #2E2E2B;
+  --color-brand-gray-800: #1A1A18;
+  --color-brand-gray-900: #0D0D0C;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  html,
+  body {
+    @apply bg-brand-white text-brand-black antialiased;
+    font-family: var(--font-sans);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-brand-gray-300);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-brand-gray-400);
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply text-sm font-medium uppercase tracking-widest text-brand-gray-600 transition-colors duration-200 hover:text-brand-black;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-none bg-brand-black px-8 py-4 text-sm font-medium uppercase tracking-widest text-white transition-all duration-200 hover:bg-brand-gray-700;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center rounded-none border-2 border-brand-black px-8 py-4 text-sm font-medium uppercase tracking-widest text-brand-black transition-all duration-200 hover:bg-brand-black hover:text-white;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold uppercase tracking-[0.2em] text-brand-black sm:text-3xl;
+  }
+
+  .section-subtitle {
+    @apply text-base text-brand-gray-500;
+  }
+}
+
+/* Collection card class - avoid @apply for group utility */
+.collection-card {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  background-color: var(--color-brand-gray-100);
+}
+
+.collection-card img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  transition: transform 0.7s ease-out;
+}
+
+.collection-card:hover img {
+  transform: scale(1.05);
+}
+
+.collection-card-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  text-align: center;
+  color: white;
+  transition: all 0.3s;
+}
