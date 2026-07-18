@@ -23,7 +23,6 @@ import { SleepRecommendationWidget } from "~/components/widgets/SleepRecommendat
 import {
   getTimeOfDay,
   getWeather,
-  getEvents,
   getGoals,
   getBills,
   getHealthSnapshot,
@@ -33,6 +32,7 @@ import {
   getAIBriefing,
   getRecentActivity,
 } from "~/data/dashboard";
+import { getUpcomingEvents } from "~/data/calendar";
 
 const getBusinessName = createServerFn({ method: "GET" }).handler(async () => {
   try {
@@ -82,7 +82,7 @@ function Dashboard() {
   const GreetingIcon = config.icon;
 
   const weather = useMemo(() => getWeather(), []);
-  const events = useMemo(() => getEvents(), []);
+  const events = useMemo(() => getUpcomingEvents(20), []);
   const bills = useMemo(() => getBills(), []);
   const health = useMemo(() => getHealthSnapshot(), []);
   const traffic = useMemo(() => getTraffic(), []);
