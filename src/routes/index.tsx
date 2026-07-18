@@ -1,16 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { readFile } from "node:fs/promises";
+import { useState, useMemo } from "react";
 import {
-  Calendar,
-  Wallet,
-  Heart,
-  Goal,
-  Bell,
   Sparkles,
-  TrendingUp,
   Clock,
+  Sun,
+  Sunset,
+  Moon,
 } from "lucide-react";
+import type { TimeOfDay } from "~/types/dashboard";
+import { WeatherWidget } from "~/components/widgets/WeatherWidget";
+import { UpcomingEventsWidget } from "~/components/widgets/UpcomingEventsWidget";
+import { DailyGoalsWidget } from "~/components/widgets/DailyGoalsWidget";
+import { BillsWidget } from "~/components/widgets/BillsWidget";
+import { HealthSnapshotWidget } from "~/components/widgets/HealthSnapshotWidget";
+import { AIBriefingWidget } from "~/components/widgets/AIBriefingWidget";
+import { BudgetSnapshot } from "~/components/widgets/BudgetSnapshot";
+import { TrafficWidget } from "~/components/widgets/TrafficWidget";
+import { SleepRecommendationWidget } from "~/components/widgets/SleepRecommendation";
+import {
+  getTimeOfDay,
+  getWeather,
+  getEvents,
+  getGoals,
+  getBills,
+  getHealthSnapshot,
+  getTraffic,
+  getSleepRecommendation,
+  getBudget,
+  getAIBriefing,
+  getRecentActivity,
+} from "~/data/dashboard";
 
 const getBusinessName = createServerFn({ method: "GET" }).handler(async () => {
   try {
@@ -28,65 +49,117 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
+const timeConfig: Record<
+  TimeOfDay,
+  { greeting: string; icon: typeof Sun; subtext: string }
+> = {
+  morning: {
+    greeting: "Good morning",
+    icon: Sun,
+    subtext: "Here's your day ahead. Let's make it great.",
+  },
+  afternoon: {
+    greeting: "Good afternoon",
+    icon: Sunset,
+    subtext: "Keep the momentum going. You've got this.",
+  },
+  evening: {
+    greeting: "Good evening",
+    icon: Moon,
+    subtext: "Time to wind down. Here's how your day went.",
+  },
+};
+
 function Dashboard() {
   const businessName = Route.useLoaderData();
+  const [goals, setGoals] = useState(() => getGoals());
 
-  const modules = [
-    { icon: Calendar, label: "Calendar", value: "3 events today", color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/40" },
-    { icon: Wallet, label: "Finances", value: "$2,450 budget left", color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/40" },
-    { icon: Heart, label: "Health", value: "6,820 steps", color: "text-rose-500", bg: "bg-rose-50 dark:bg-rose-950/40" },
-    { icon: Goal, label: "Goals", value: "2 in progress", color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/40" },
-    { icon: Bell, label: "Reminders", value: "4 pending", color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950/40" },
-    { icon: TrendingUp, label: "Focus", value: "Deep work: 2h today", color: "text-cyan-500", bg: "bg-cyan-50 dark:bg-cyan-950/40" },
-  ];
+  const timeOfDay = useMemo(() => getTimeOfDay(), []);
+  const config = timeConfig[timeOfDay];
+  const GreetingIcon = config.icon;
 
-  const quickActions = [
-    "Add a task",
-    "Log a workout",
-    "Check budget",
-    "Plan my week",
-  ];
+  const weather = useMemo(() => getWeather(), []);
+  const events = useMemo(() => getEvents(), []);
+  const bills = useMemo(() => getBills(), []);
+  const health = useMemo(() => getHealthSnapshot(), []);
+  const traffic = useMemo(() => getTraffic(), []);
+  const sleep = useMemo(() => getSleepRecommendation(), []);
+  const budget = useMemo(() => getBudget(), []);
+  const briefing = useMemo(() => getAIBriefing(timeOfDay), [timeOfDay]);
+  const recentActivity = useMemo(() => getRecentActivity(), []);
+
+  const toggleGoal = (id: string) => {
+    setGoals((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g)),
+    );
+  };
+
+  const quickActions = useMemo(() => {
+    switch (timeOfDay) {
+      case "morning":
+        return ["Plan my day", "Check weather", "Review schedule", "Morning briefing"];
+      case "afternoon":
+        return ["Log lunch", "Update budget", "Check health", "Afternoon focus"];
+      case "evening":
+        return ["Reflect on today", "Plan tomorrow", "Log sleep", "Evening review"];
+    }
+  }, [timeOfDay]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8 lg:py-8">
-      {/* Welcome */}
+      {/* Welcome Header */}
       <div className="mb-8">
-        <h2 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-surface-100 lg:text-3xl">
-          Good{" "}
-          {new Date().getHours() < 12
-            ? "morning"
-            : new Date().getHours() < 18
-              ? "afternoon"
-              : "evening"}
-        </h2>
-        <p className="mt-1 text-surface-500 dark:text-surface-400">
-          Here&apos;s your {businessName} overview for today.
-        </p>
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-accent-100 text-accent-600 dark:bg-accent-900/50 dark:text-accent-400">
+            <GreetingIcon className="size-5" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-surface-100 lg:text-3xl">
+              {config.greeting}
+            </h2>
+            <p className="mt-0.5 text-sm text-surface-500 dark:text-surface-400">
+              {config.subtext}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Module cards */}
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4">
-        {modules.map((mod) => {
-          const Icon = mod.icon;
-          return (
-            <div
-              key={mod.label}
-              className="group cursor-pointer rounded-2xl border border-surface-200 bg-white p-4 transition-all duration-200 hover:border-surface-300 hover:shadow-lg hover:shadow-surface-200/50 dark:border-surface-800 dark:bg-surface-900 dark:hover:border-surface-700 dark:hover:shadow-surface-950/50"
-            >
-              <div
-                className={`mb-3 inline-flex rounded-xl p-2.5 ${mod.bg}`}
-              >
-                <Icon className={`size-5 ${mod.color}`} />
-              </div>
-              <h3 className="text-sm font-semibold text-surface-900 dark:text-surface-100">
-                {mod.label}
-              </h3>
-              <p className="mt-0.5 text-xs text-surface-500 dark:text-surface-400">
-                {mod.value}
-              </p>
-            </div>
-          );
-        })}
+      {/* Dashboard Grid */}
+      <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
+        {/* AI Briefing - spans 2 columns on tablet+ */}
+        <div className="sm:col-span-2 lg:col-span-2">
+          <AIBriefingWidget briefing={briefing} />
+        </div>
+
+        {/* Weather - always visible */}
+        <WeatherWidget weather={weather} />
+
+        {/* Morning-only: Traffic */}
+        {timeOfDay === "morning" && <TrafficWidget traffic={traffic} />}
+
+        {/* Upcoming Events - spans 2 columns on desktop */}
+        <div className="lg:col-span-2">
+          <UpcomingEventsWidget events={events} />
+        </div>
+
+        {/* Daily Goals */}
+        <DailyGoalsWidget goals={goals} onToggle={toggleGoal} />
+
+        {/* Health Snapshot */}
+        <HealthSnapshotWidget health={health} />
+
+        {/* Budget Snapshot */}
+        <BudgetSnapshot budget={budget} />
+
+        {/* Bills */}
+        <BillsWidget bills={bills} />
+
+        {/* Evening-only: Sleep Recommendation */}
+        {timeOfDay === "evening" && (
+          <div className="sm:col-span-2 lg:col-span-2">
+            <SleepRecommendationWidget sleep={sleep} />
+          </div>
+        )}
       </div>
 
       {/* AI prompt card */}
@@ -99,6 +172,9 @@ function Dashboard() {
             <h3 className="text-sm font-semibold text-surface-900 dark:text-surface-100">
               Ask your AI assistant
             </h3>
+            <p className="mt-0.5 text-xs text-surface-500 dark:text-surface-400">
+              What would you like help with?
+            </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {quickActions.map((action) => (
                 <button
@@ -113,7 +189,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Recent activity / placeholder */}
+      {/* Recent activity */}
       <div className="rounded-2xl border border-surface-200 bg-white p-5 dark:border-surface-800 dark:bg-surface-900 lg:p-6">
         <div className="flex items-center gap-2 mb-4">
           <Clock className="size-4 text-surface-400" />
@@ -122,11 +198,7 @@ function Dashboard() {
           </h3>
         </div>
         <div className="space-y-3">
-          {[
-            "Updated weekly budget — 30 min ago",
-            "Completed morning workout — 2 hours ago",
-            "Added grocery list item — 4 hours ago",
-          ].map((item, i) => (
+          {recentActivity.map((item, i) => (
             <div
               key={i}
               className="flex items-center gap-3 rounded-lg py-2 text-sm text-surface-600 dark:text-surface-400"
