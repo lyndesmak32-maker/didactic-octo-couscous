@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { readFile } from "node:fs/promises";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Sparkles,
   Clock,
@@ -9,6 +9,7 @@ import {
   Sunset,
   Moon,
 } from "lucide-react";
+import { useAI } from "~/hooks/useAI";
 import type { TimeOfDay } from "~/types/dashboard";
 import { WeatherWidget } from "~/components/widgets/WeatherWidget";
 import { UpcomingEventsWidget } from "~/components/widgets/UpcomingEventsWidget";
@@ -73,6 +74,8 @@ const timeConfig: Record<
 function Dashboard() {
   const businessName = Route.useLoaderData();
   const [goals, setGoals] = useState(() => getGoals());
+  const navigate = useNavigate();
+  const { sendMessage } = useAI();
 
   const timeOfDay = useMemo(() => getTimeOfDay(), []);
   const config = timeConfig[timeOfDay];
@@ -93,6 +96,11 @@ function Dashboard() {
       prev.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g)),
     );
   };
+
+  const handleQuickAction = useCallback((action: string) => {
+    sendMessage(action);
+    navigate({ to: "/ai" });
+  }, [sendMessage, navigate]);
 
   const quickActions = useMemo(() => {
     switch (timeOfDay) {
@@ -179,6 +187,7 @@ function Dashboard() {
               {quickActions.map((action) => (
                 <button
                   key={action}
+                  onClick={() => handleQuickAction(action)}
                   className="rounded-full border border-accent-200 bg-white px-3 py-1.5 text-xs font-medium text-accent-700 transition-all hover:bg-accent-50 hover:shadow-sm dark:border-accent-800 dark:bg-surface-800 dark:text-accent-300 dark:hover:bg-accent-950/50"
                 >
                   {action}

@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { Menu, Moon, Sun, User } from "lucide-react";
 
 interface TopBarProps {
@@ -17,6 +18,7 @@ export function TopBar({
   onMenuClick,
   aiPanelOpen,
 }: TopBarProps) {
+  const navigate = useNavigate();
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", {
     weekday: "long",
@@ -74,6 +76,7 @@ export function TopBar({
 
         {/* Profile */}
         <button
+          onClick={() => navigate({ to: "/settings" })}
           className="ml-1 flex size-9 items-center justify-center rounded-full bg-surface-200 text-surface-500 transition-colors hover:bg-surface-300 dark:bg-surface-800 dark:text-surface-400 dark:hover:bg-surface-700"
           aria-label="Profile"
         >
