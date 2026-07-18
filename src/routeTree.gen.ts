@@ -9,8 +9,80 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TravelRouteImport } from './routes/travel'
+import { Route as ShoppingRouteImport } from './routes/shopping'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as RemindersRouteImport } from './routes/reminders'
+import { Route as HealthRouteImport } from './routes/health'
+import { Route as GoalsRouteImport } from './routes/goals'
+import { Route as FinancesRouteImport } from './routes/finances'
+import { Route as FamilyRouteImport } from './routes/family'
+import { Route as DocumentsRouteImport } from './routes/documents'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as AiRouteImport } from './routes/ai'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TravelRoute = TravelRouteImport.update({
+  id: '/travel',
+  path: '/travel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShoppingRoute = ShoppingRouteImport.update({
+  id: '/shopping',
+  path: '/shopping',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GoalsRoute = GoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinancesRoute = FinancesRouteImport.update({
+  id: '/finances',
+  path: '/finances',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FamilyRoute = FamilyRouteImport.update({
+  id: '/family',
+  path: '/family',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiRoute = AiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +91,200 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/calendar': typeof CalendarRoute
+  '/documents': typeof DocumentsRoute
+  '/family': typeof FamilyRoute
+  '/finances': typeof FinancesRoute
+  '/goals': typeof GoalsRoute
+  '/health': typeof HealthRoute
+  '/reminders': typeof RemindersRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
+  '/shopping': typeof ShoppingRoute
+  '/travel': typeof TravelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/calendar': typeof CalendarRoute
+  '/documents': typeof DocumentsRoute
+  '/family': typeof FamilyRoute
+  '/finances': typeof FinancesRoute
+  '/goals': typeof GoalsRoute
+  '/health': typeof HealthRoute
+  '/reminders': typeof RemindersRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
+  '/shopping': typeof ShoppingRoute
+  '/travel': typeof TravelRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
+  '/calendar': typeof CalendarRoute
+  '/documents': typeof DocumentsRoute
+  '/family': typeof FamilyRoute
+  '/finances': typeof FinancesRoute
+  '/goals': typeof GoalsRoute
+  '/health': typeof HealthRoute
+  '/reminders': typeof RemindersRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
+  '/shopping': typeof ShoppingRoute
+  '/travel': typeof TravelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/ai'
+    | '/calendar'
+    | '/documents'
+    | '/family'
+    | '/finances'
+    | '/goals'
+    | '/health'
+    | '/reminders'
+    | '/search'
+    | '/settings'
+    | '/shopping'
+    | '/travel'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/ai'
+    | '/calendar'
+    | '/documents'
+    | '/family'
+    | '/finances'
+    | '/goals'
+    | '/health'
+    | '/reminders'
+    | '/search'
+    | '/settings'
+    | '/shopping'
+    | '/travel'
+  id:
+    | '__root__'
+    | '/'
+    | '/ai'
+    | '/calendar'
+    | '/documents'
+    | '/family'
+    | '/finances'
+    | '/goals'
+    | '/health'
+    | '/reminders'
+    | '/search'
+    | '/settings'
+    | '/shopping'
+    | '/travel'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiRoute: typeof AiRoute
+  CalendarRoute: typeof CalendarRoute
+  DocumentsRoute: typeof DocumentsRoute
+  FamilyRoute: typeof FamilyRoute
+  FinancesRoute: typeof FinancesRoute
+  GoalsRoute: typeof GoalsRoute
+  HealthRoute: typeof HealthRoute
+  RemindersRoute: typeof RemindersRoute
+  SearchRoute: typeof SearchRoute
+  SettingsRoute: typeof SettingsRoute
+  ShoppingRoute: typeof ShoppingRoute
+  TravelRoute: typeof TravelRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/travel': {
+      id: '/travel'
+      path: '/travel'
+      fullPath: '/travel'
+      preLoaderRoute: typeof TravelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shopping': {
+      id: '/shopping'
+      path: '/shopping'
+      fullPath: '/shopping'
+      preLoaderRoute: typeof ShoppingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/goals': {
+      id: '/goals'
+      path: '/goals'
+      fullPath: '/goals'
+      preLoaderRoute: typeof GoalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/finances': {
+      id: '/finances'
+      path: '/finances'
+      fullPath: '/finances'
+      preLoaderRoute: typeof FinancesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/family': {
+      id: '/family'
+      path: '/family'
+      fullPath: '/family'
+      preLoaderRoute: typeof FamilyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai': {
+      id: '/ai'
+      path: '/ai'
+      fullPath: '/ai'
+      preLoaderRoute: typeof AiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +297,18 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiRoute: AiRoute,
+  CalendarRoute: CalendarRoute,
+  DocumentsRoute: DocumentsRoute,
+  FamilyRoute: FamilyRoute,
+  FinancesRoute: FinancesRoute,
+  GoalsRoute: GoalsRoute,
+  HealthRoute: HealthRoute,
+  RemindersRoute: RemindersRoute,
+  SearchRoute: SearchRoute,
+  SettingsRoute: SettingsRoute,
+  ShoppingRoute: ShoppingRoute,
+  TravelRoute: TravelRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

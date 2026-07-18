@@ -1,0 +1,29 @@
+import sharp from "sharp";
+
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg)"/>
+  <path d="M256 80L280 204L296 256L280 308L256 432L232 308L216 256L232 204L256 80Z" fill="white" opacity="0.9"/>
+  <circle cx="256" cy="256" r="40" fill="white"/>
+</svg>`;
+
+async function main() {
+  await sharp(Buffer.from(svg))
+    .resize(192, 192)
+    .png()
+    .toFile("public/icons/icon-192.png");
+
+  await sharp(Buffer.from(svg))
+    .resize(512, 512)
+    .png()
+    .toFile("public/icons/icon-512.png");
+
+  console.log("Icons generated");
+}
+
+main();
