@@ -25,7 +25,6 @@ import {
   getWeather,
   getGoals,
   getBills,
-  getHealthSnapshot,
   getTraffic,
   getSleepRecommendation,
   getBudget,
@@ -84,7 +83,6 @@ function Dashboard() {
   const weather = useMemo(() => getWeather(), []);
   const events = useMemo(() => getUpcomingEvents(20), []);
   const bills = useMemo(() => getBills(), []);
-  const health = useMemo(() => getHealthSnapshot(), []);
   const traffic = useMemo(() => getTraffic(), []);
   const sleep = useMemo(() => getSleepRecommendation(), []);
   const budget = useMemo(() => getBudget(), []);
@@ -154,7 +152,7 @@ function Dashboard() {
         <DailyGoalsWidget goals={goals} onToggle={toggleGoal} />
 
         {/* Health Snapshot */}
-        <HealthSnapshotWidget health={health} />
+        <HealthSnapshotWidget />
 
         {/* Budget Snapshot */}
         <BudgetSnapshot budget={budget} />
