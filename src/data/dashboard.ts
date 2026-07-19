@@ -10,6 +10,7 @@ import type {
   AIBriefing,
   TimeOfDay,
 } from "~/types/dashboard";
+import { getTotalMonthlyIncome, getTotalMonthlyExpenses, getBudget as getFinanceBudget, getRecurringBills } from "~/data/finances";
 
 export function getTimeOfDay(): TimeOfDay {
   const hour = new Date().getHours();
@@ -78,44 +79,18 @@ export function getGoals(): Goal[] {
 }
 
 export function getBills(): Bill[] {
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const in3Days = new Date(today);
-  in3Days.setDate(today.getDate() + 3);
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
-  return [
-    {
-      id: "b1",
-      name: "Electric Bill",
-      amount: 124.5,
-      dueDate: today.toISOString().split("T")[0],
-      status: "due-today",
-    },
-    {
-      id: "b2",
-      name: "Internet",
-      amount: 79.99,
-      dueDate: tomorrow.toISOString().split("T")[0],
-      status: "upcoming",
-    },
-    {
-      id: "b3",
-      name: "Car Insurance",
-      amount: 210.0,
-      dueDate: in3Days.toISOString().split("T")[0],
-      status: "upcoming",
-    },
-    {
-      id: "b4",
-      name: "Credit Card",
-      amount: 450.0,
-      dueDate: yesterday.toISOString().split("T")[0],
-      status: "overdue",
-    },
-  ];
+  const allBills = getRecurringBills();
+  // Only return unpaid/non-subscription bills for the dashboard widget, limit to 4
+  return allBills
+    .filter((b) => b.type === "bill" && b.status !== "paid")
+    .slice(0, 4)
+    .map((b) => ({
+      id: b.id,
+      name: b.name,
+      amount: b.amount,
+      dueDate: b.dueDate,
+      status: b.status,
+    }));
 }
 
 export function getHealthSnapshot(): HealthSnapshot {
@@ -154,13 +129,26 @@ export function getSleepRecommendation(): SleepRecommendation {
 }
 
 export function getBudget(): BudgetData {
+  const financeBudget = getFinanceBudget(); // from finances store (current month)
+  const spent = getTotalMonthlyExpenses();
   const now = new Date();
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const daysRemaining = lastDay.getDate() - now.getDate();
 
+  if (financeBudget) {
+    return {
+      spent,
+      total: financeBudget.totalBudget,
+      category: "Monthly Budget",
+      daysRemaining,
+    };
+  }
+
+  // Fallback if no budget exists
+  const income = getTotalMonthlyIncome();
   return {
-    spent: 3250,
-    total: 5000,
+    spent: income > 0 ? Math.round(income * 0.65) : 3250,
+    total: income > 0 ? Math.round(income * 0.8) : 5000,
     category: "Monthly Budget",
     daysRemaining,
   };
