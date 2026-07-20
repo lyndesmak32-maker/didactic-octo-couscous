@@ -4,8 +4,17 @@ import {
   Scripts,
   createRootRoute,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { AppShell } from "~/components/layout/AppShell";
+import { PinLock } from "~/components/PinLock";
+import {
+  isPinSet,
+  isSessionExpired,
+  unlockSession,
+  recordActivity,
+  resetAuth,
+} from "~/utils/auth";
+import { deleteAllData } from "~/data/privacy";
 
 import appCss from "~/styles/app.css?url";
 
@@ -60,6 +69,87 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  const [locked, setLocked] = useState(false);
+
+  // Check lock state on mount and periodically
+  useEffect(() => {
+    const checkLock = () => {
+      if (isPinSet() && isSessionExpired()) {
+        setLocked(true);
+      }
+    };
+    checkLock();
+    const interval = setInterval(checkLock, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Track user activity
+  useEffect(() => {
+    const events = ["mousedown", "keydown", "touchstart", "scroll", "mousemove"];
+    let throttleTimer: ReturnType<typeof setTimeout>;
+
+    const onActivity = () => {
+      if (throttleTimer) return;
+      throttleTimer = setTimeout(() => {
+        throttleTimer = undefined as unknown as ReturnType<typeof setTimeout>;
+        recordActivity();
+      }, 2000);
+    };
+
+    for (const ev of events) {
+      window.addEventListener(ev, onActivity, { passive: true });
+    }
+    return () => {
+      for (const ev of events) {
+        window.removeEventListener(ev, onActivity);
+      }
+    };
+  }, []);
+
+  // Track visibility: lock when user returns after timeout
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (isPinSet() && isSessionExpired()) {
+          setLocked(true);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
+  const handleUnlock = useCallback(
+    (pin: string) => {
+      if (unlockSession(pin)) {
+        setLocked(false);
+      }
+      // If unlock fails, PinLock component handles the visual feedback
+      // unlockSession already verifies internally
+    },
+    [],
+  );
+
+  const handleForgotPin = useCallback(() => {
+    // Delete all LifeOS data and reset
+    deleteAllData();
+    resetAuth();
+    window.location.reload();
+  }, []);
+
+  if (locked) {
+    return (
+      <RootDocument>
+        <PinLock
+          mode="unlock"
+          onSuccess={handleUnlock}
+          onForgotPin={handleForgotPin}
+        />
+      </RootDocument>
+    );
+  }
+
   return (
     <RootDocument>
       <AppShell />
