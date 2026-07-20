@@ -7,12 +7,24 @@ import { MobileBottomNav } from "./MobileBottomNav";
 import { useTheme } from "~/hooks/useTheme";
 import { useAIPanel } from "~/hooks/useAIPanel";
 import { navItems } from "./navItems";
+import { getSidebarCollapsed, setSidebarCollapsed } from "~/data/preferences";
 
 export function AppShell() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(() => {
+    if (typeof window !== "undefined") return getSidebarCollapsed();
+    return false;
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { open: aiPanelOpen, toggle: toggleAIPanel, close: closeAIPanel } = useAIPanel();
+
+  const handleSidebarToggle = useCallback(() => {
+    setSidebarCollapsedState((c) => {
+      const next = !c;
+      setSidebarCollapsed(next);
+      return next;
+    });
+  }, []);
 
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
@@ -37,7 +49,7 @@ export function AppShell() {
       {/* Sidebar */}
       <Sidebar
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((c) => !c)}
+        onToggle={handleSidebarToggle}
         mobileOpen={mobileMenuOpen}
         onMobileClose={handleMobileMenuClose}
       />

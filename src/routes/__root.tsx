@@ -170,6 +170,13 @@ function RootDocument({ children }: { children: ReactNode }) {
                 if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                   document.documentElement.classList.add('dark');
                 }
+                // Apply accent color before first paint
+                try {
+                  var prefs = JSON.parse(localStorage.getItem('lifeos-preferences'));
+                  if (prefs && prefs.accent) {
+                    document.documentElement.setAttribute('data-accent', prefs.accent);
+                  }
+                } catch(e) {}
               })();
             `,
           }}

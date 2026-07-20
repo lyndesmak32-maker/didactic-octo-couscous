@@ -13,6 +13,15 @@ import {
   AlertTriangle,
   Info,
   FileText,
+  Palette,
+  Sparkles,
+  Bell,
+  Calendar,
+  Wallet,
+  Globe,
+  Sun,
+  Moon,
+  RotateCcw,
 } from "lucide-react";
 import { PinLock } from "~/components/PinLock";
 import {
@@ -34,6 +43,21 @@ import {
   deleteAllData,
   type ModuleName,
 } from "~/data/privacy";
+import { useTheme, ACCENT_COLORS, type AccentColor } from "~/hooks/useTheme";
+import {
+  getAIPreferences,
+  setAIPreferences,
+  setAIAlert,
+  getGeneralPreferences,
+  setGeneralPreferences,
+  DEFAULT_AI_PREFS,
+  DEFAULT_GENERAL,
+  type AIVerbosity,
+  type CalendarView,
+  type FinanceView,
+  type DateFormat,
+  type WeekStart,
+} from "~/data/preferences";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -45,15 +69,369 @@ function SettingsPage() {
           Settings
         </h2>
         <p className="mt-1 text-surface-500 dark:text-surface-400">
-          Manage your LifeOS security, privacy, and data.
+          Customize your LifeOS experience.
         </p>
       </div>
 
       <div className="space-y-6">
+        <ThemeSection />
+        <GeneralSection />
+        <AISection />
         <SecuritySection />
         <PrivacySection />
         <DataSection />
         <AboutSection />
+      </div>
+    </div>
+  );
+}
+
+// ── Theme Section ──────────────────────────────────────────────
+
+function ThemeSection() {
+  const { theme, setTheme, setAccent } = useTheme();
+  const [currentAccent, setCurrentAccent] = useState<AccentColor>(() => {
+    if (typeof window !== "undefined") {
+      return (document.documentElement.getAttribute("data-accent") as AccentColor) || "amber";
+    }
+    return "amber";
+  });
+
+  const handleAccentChange = useCallback(
+    (accent: AccentColor) => {
+      setAccent(accent);
+      setCurrentAccent(accent);
+    },
+    [setAccent],
+  );
+
+  return (
+    <div className="rounded-2xl border border-surface-200 bg-white p-5 dark:border-surface-800 dark:bg-surface-900">
+      <div className="mb-4 flex items-center gap-2">
+        <Palette className="size-4 text-surface-400" />
+        <h3 className="text-sm font-semibold text-surface-900 dark:text-surface-100">
+          Theme
+        </h3>
+      </div>
+
+      <div className="space-y-4">
+        {/* Mode toggle */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-surface-400">Mode</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTheme("light")}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
+                theme === "light"
+                  ? "border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-950/50 dark:text-accent-300"
+                  : "border-surface-200 text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-800"
+              }`}
+            >
+              <Sun className="size-4" />
+              Light
+            </button>
+            <button
+              onClick={() => setTheme("dark")}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
+                theme === "dark"
+                  ? "border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-950/50 dark:text-accent-300"
+                  : "border-surface-200 text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-800"
+              }`}
+            >
+              <Moon className="size-4" />
+              Dark
+            </button>
+          </div>
+        </div>
+
+        {/* Accent color swatches */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-surface-400">Accent Color</p>
+          <div className="flex flex-wrap gap-3">
+            {ACCENT_COLORS.map((ac) => {
+              const isActive = currentAccent === ac.id;
+              return (
+                <button
+                  key={ac.id}
+                  onClick={() => handleAccentChange(ac.id)}
+                  title={ac.label}
+                  className="group flex flex-col items-center gap-1.5"
+                >
+                  <div
+                    className={`size-9 rounded-full transition-all duration-200 ${
+                      isActive
+                        ? "ring-2 ring-offset-2 ring-accent-500 ring-offset-white dark:ring-offset-surface-900 scale-110"
+                        : "hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: ac.hex }}
+                  />
+                  <span
+                    className={`text-[10px] font-medium transition-colors ${
+                      isActive
+                        ? "text-accent-600 dark:text-accent-400"
+                        : "text-surface-400 group-hover:text-surface-600 dark:group-hover:text-surface-300"
+                    }`}
+                  >
+                    {ac.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {/* Live preview */}
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-surface-50 px-3 py-2 dark:bg-surface-800">
+            <div
+              className="size-3 rounded-full transition-colors duration-200"
+              style={{ backgroundColor: ACCENT_COLORS.find((a) => a.id === currentAccent)?.hex }}
+            />
+            <span className="text-xs text-surface-500 dark:text-surface-400">
+              Preview:{" "}
+              <span
+                className="font-semibold transition-colors duration-200"
+                style={{ color: ACCENT_COLORS.find((a) => a.id === currentAccent)?.hex }}
+              >
+                {ACCENT_COLORS.find((a) => a.id === currentAccent)?.label}
+              </span>{" "}
+              accent active
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── General Preferences Section ────────────────────────────────
+
+function GeneralSection() {
+  const [prefs, setPrefs] = useState(() => {
+    if (typeof window !== "undefined") return getGeneralPreferences();
+    return DEFAULT_GENERAL;
+  });
+
+  const update = useCallback(
+    <K extends keyof typeof prefs>(key: K, value: (typeof prefs)[K]) => {
+      const next = { ...prefs, [key]: value };
+      setPrefs(next);
+      setGeneralPreferences({ [key]: value });
+    },
+    [prefs],
+  );
+
+  return (
+    <div className="rounded-2xl border border-surface-200 bg-white p-5 dark:border-surface-800 dark:bg-surface-900">
+      <div className="mb-4 flex items-center gap-2">
+        <Globe className="size-4 text-surface-400" />
+        <h3 className="text-sm font-semibold text-surface-900 dark:text-surface-100">
+          General
+        </h3>
+      </div>
+
+      <div className="space-y-1">
+        {/* Default Calendar View */}
+        <div className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm">
+          <div className="flex items-center gap-3">
+            <Calendar className="size-4 text-surface-400" />
+            <span className="text-surface-700 dark:text-surface-200">
+              Default Calendar View
+            </span>
+          </div>
+          <select
+            value={prefs.defaultCalendarView}
+            onChange={(e) => update("defaultCalendarView", e.target.value as CalendarView)}
+            className="rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-xs text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"
+          >
+            <option value="month">Month</option>
+            <option value="week">Week</option>
+            <option value="day">Day</option>
+          </select>
+        </div>
+
+        {/* Default Finance View */}
+        <div className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm">
+          <div className="flex items-center gap-3">
+            <Wallet className="size-4 text-surface-400" />
+            <span className="text-surface-700 dark:text-surface-200">
+              Default Finance View
+            </span>
+          </div>
+          <select
+            value={prefs.defaultFinanceView}
+            onChange={(e) => update("defaultFinanceView", e.target.value as FinanceView)}
+            className="rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-xs text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"
+          >
+            <option value="overview">Overview</option>
+            <option value="transactions">Transactions</option>
+            <option value="budget">Budget</option>
+          </select>
+        </div>
+
+        {/* Date Format */}
+        <div className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm">
+          <div className="flex items-center gap-3">
+            <Calendar className="size-4 text-surface-400" />
+            <span className="text-surface-700 dark:text-surface-200">
+              Date Format
+            </span>
+          </div>
+          <select
+            value={prefs.dateFormat}
+            onChange={(e) => update("dateFormat", e.target.value as DateFormat)}
+            className="rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-xs text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"
+          >
+            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+          </select>
+        </div>
+
+        {/* First Day of Week */}
+        <div className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm">
+          <div className="flex items-center gap-3">
+            <Calendar className="size-4 text-surface-400" />
+            <span className="text-surface-700 dark:text-surface-200">
+              First Day of Week
+            </span>
+          </div>
+          <select
+            value={prefs.weekStart}
+            onChange={(e) => update("weekStart", e.target.value as WeekStart)}
+            className="rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-xs text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"
+          >
+            <option value="sunday">Sunday</option>
+            <option value="monday">Monday</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AI Preferences Section ─────────────────────────────────────
+
+function AISection() {
+  const [prefs, setPrefs] = useState(() => {
+    if (typeof window !== "undefined") return getAIPreferences();
+    return DEFAULT_AI_PREFS;
+  });
+
+  const [nickname, setNickname] = useState(prefs.nickname);
+  const [saved, setSaved] = useState(false);
+
+  const saveNickname = useCallback(() => {
+    setAIPreferences({ nickname: nickname.trim() || "LifeOS" });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }, [nickname]);
+
+  const handleVerbosity = useCallback((v: AIVerbosity) => {
+    setPrefs((p) => ({ ...p, verbosity: v }));
+    setAIPreferences({ verbosity: v });
+  }, []);
+
+  const handleAlert = useCallback((cat: keyof typeof prefs.proactiveAlerts, enabled: boolean) => {
+    setPrefs((p) => ({
+      ...p,
+      proactiveAlerts: { ...p.proactiveAlerts, [cat]: enabled },
+    }));
+    setAIAlert(cat, enabled);
+  }, []);
+
+  return (
+    <div className="rounded-2xl border border-surface-200 bg-white p-5 dark:border-surface-800 dark:bg-surface-900">
+      <div className="mb-4 flex items-center gap-2">
+        <Sparkles className="size-4 text-surface-400" />
+        <h3 className="text-sm font-semibold text-surface-900 dark:text-surface-100">
+          AI Assistant
+        </h3>
+      </div>
+
+      <div className="space-y-4">
+        {/* AI Nickname */}
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-surface-400">Nickname / Persona</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveNickname()}
+              placeholder="LifeOS"
+              maxLength={20}
+              className="flex-1 rounded-lg border border-surface-200 bg-surface-50 px-3 py-2 text-sm text-surface-700 placeholder:text-surface-400 focus:border-accent-400 focus:outline-none focus:ring-1 focus:ring-accent-400 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-200"
+            />
+            <button
+              onClick={saveNickname}
+              className="rounded-lg bg-accent-500 px-3 py-2 text-xs font-medium text-white transition-all hover:bg-accent-600"
+            >
+              {saved ? (
+                <Check className="size-4" />
+              ) : (
+                "Save"
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Verbosity */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-surface-400">Response Style</p>
+          <div className="flex gap-1.5">
+            {(["concise", "balanced", "detailed"] as AIVerbosity[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => handleVerbosity(v)}
+                className={`flex-1 rounded-lg border px-2 py-2 text-xs font-medium capitalize transition-all ${
+                  prefs.verbosity === v
+                    ? "border-accent-500 bg-accent-50 text-accent-700 dark:bg-accent-950/50 dark:text-accent-300"
+                    : "border-surface-200 text-surface-500 hover:bg-surface-50 dark:border-surface-700 dark:text-surface-400 dark:hover:bg-surface-800"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Proactive Alerts */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-surface-400">
+            Proactive Notifications
+          </p>
+          <div className="space-y-1">
+            {[
+              { key: "schedule" as const, label: "Schedule alerts", desc: "Upcoming events, conflicts, reminders" },
+              { key: "finance" as const, label: "Finance alerts", desc: "Bill reminders, budget warnings" },
+              { key: "health" as const, label: "Health nudges", desc: "Activity reminders, sleep tips" },
+              { key: "goals" as const, label: "Goal progress", desc: "Progress nudges and milestones" },
+            ].map(({ key, label, desc }) => (
+              <div
+                key={key}
+                className="flex items-center justify-between rounded-lg px-3 py-2"
+              >
+                <div>
+                  <span className="text-sm text-surface-700 dark:text-surface-200">
+                    {label}
+                  </span>
+                  <p className="text-xs text-surface-400">{desc}</p>
+                </div>
+                <button
+                  onClick={() => handleAlert(key, !prefs.proactiveAlerts[key])}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                    prefs.proactiveAlerts[key]
+                      ? "bg-accent-500"
+                      : "bg-surface-300 dark:bg-surface-600"
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform ${
+                      prefs.proactiveAlerts[key] ? "translate-x-[22px]" : "translate-x-[1px]"
+                    }`}
+                  />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -101,12 +479,10 @@ function SecuritySection() {
           setPinModal({ open: false, mode: "setup" });
           break;
         case "change-verify":
-          // Old PIN verified — go to new PIN setup
           setCurrentPin(pin);
           setPinModal({ open: true, mode: "change-new" });
           break;
         case "change-new":
-          // New PIN set — remove old, set new
           changePin(currentPin, pin);
           showMessage("PIN changed successfully", "success");
           setCurrentPin("");
@@ -121,7 +497,6 @@ function SecuritySection() {
   const handleLockNow = useCallback(() => {
     lockNow();
     showMessage("App locked", "success");
-    // Reload to show lock screen
     setTimeout(() => window.location.reload(), 500);
   }, [showMessage]);
 
@@ -147,7 +522,6 @@ function SecuritySection() {
       )}
 
       <div className="space-y-1">
-        {/* PIN Setup / Change */}
         <button
           onClick={() =>
             setPinModal({
@@ -171,7 +545,6 @@ function SecuritySection() {
           <ChevronRight className="size-4 text-surface-300 dark:text-surface-600" />
         </button>
 
-        {/* Lock Timeout */}
         {pinActive && (
           <div className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm">
             <div className="flex items-center gap-3">
@@ -197,7 +570,6 @@ function SecuritySection() {
           </div>
         )}
 
-        {/* Lock Now */}
         {pinActive && (
           <button
             onClick={handleLockNow}
@@ -208,7 +580,6 @@ function SecuritySection() {
           </button>
         )}
 
-        {/* Remove PIN */}
         {pinActive && (
           <button
             onClick={() =>
@@ -222,7 +593,6 @@ function SecuritySection() {
         )}
       </div>
 
-      {/* PIN Modal — setup */}
       {pinModal.open && pinModal.mode === "setup" && (
         <PinLock
           mode="setup"
@@ -231,7 +601,6 @@ function SecuritySection() {
         />
       )}
 
-      {/* PIN Modal — change: verify old PIN first */}
       {pinModal.open && pinModal.mode === "change-verify" && (
         <PinLock
           mode="verify"
@@ -240,7 +609,6 @@ function SecuritySection() {
         />
       )}
 
-      {/* PIN Modal — change: enter new PIN */}
       {pinModal.open && pinModal.mode === "change-new" && (
         <PinLock
           mode="setup"
@@ -252,7 +620,6 @@ function SecuritySection() {
         />
       )}
 
-      {/* Remove PIN modal */}
       {pinModal.open && pinModal.mode === "remove" && (
         <RemovePinModal
           onClose={() => setPinModal({ open: false, mode: "setup" })}
@@ -277,7 +644,6 @@ function RemovePinModal({
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
-  const [pin, setPinInput] = useState("");
   const [digits, setDigits] = useState<string[]>([]);
 
   const handleDigit = useCallback(
@@ -401,7 +767,6 @@ function PrivacySection() {
       </div>
 
       <div className="space-y-1">
-        {/* Sensitive data toggle */}
         <div className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm">
           <div className="flex items-center gap-3">
             {privacy.hideSensitiveData ? (
@@ -434,7 +799,6 @@ function PrivacySection() {
           </button>
         </div>
 
-        {/* Module visibility toggles */}
         <div className="mt-2 border-t border-surface-100 pt-2 dark:border-surface-700">
           <p className="px-3 py-1.5 text-xs font-medium text-surface-400">
             Module Visibility
@@ -504,7 +868,6 @@ function DataSection() {
       if (deletePin.length >= 6) return;
       const next = [...deletePin, d];
       setDeletePin(next);
-      // Check PIN after 4+ digits
       if (next.length >= 4) {
         if (verifyPin(next.join(""))) {
           deleteAllData();
@@ -534,7 +897,6 @@ function DataSection() {
       </div>
 
       <div className="space-y-1">
-        {/* Export */}
         <button
           onClick={handleExport}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-surface-50 dark:hover:bg-surface-800"
@@ -551,7 +913,6 @@ function DataSection() {
           )}
         </button>
 
-        {/* Delete */}
         <button
           onClick={() => {
             setShowDeleteConfirm(true);
@@ -566,7 +927,6 @@ function DataSection() {
         </button>
       </div>
 
-      {/* Delete confirmation modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-surface-950/80 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl border border-surface-700 bg-surface-900 p-6">
