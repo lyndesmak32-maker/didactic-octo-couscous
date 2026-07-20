@@ -1,6 +1,23 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import {
+  getAccent,
+  setAccent as persistAccent,
+  getTheme,
+  setTheme as persistTheme,
+  initAccentAttribute,
+} from "~/data/preferences";
 
-type Theme = "light" | "dark";
+export type Theme = "light" | "dark";
+export type AccentColor = "amber" | "blue" | "emerald" | "rose" | "violet" | "cyan";
+
+export const ACCENT_COLORS: { id: AccentColor; label: string; hex: string }[] = [
+  { id: "amber", label: "Amber", hex: "#f59e0b" },
+  { id: "blue", label: "Blue", hex: "#3b82f6" },
+  { id: "emerald", label: "Emerald", hex: "#10b981" },
+  { id: "rose", label: "Rose", hex: "#f43f5e" },
+  { id: "violet", label: "Violet", hex: "#8b5cf6" },
+  { id: "cyan", label: "Cyan", hex: "#06b6d4" },
+];
 
 function getSnapshot(): Theme {
   if (typeof document === "undefined") return "light";
@@ -25,6 +42,7 @@ function notify() {
 export function useTheme() {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
+  // On mount: apply stored theme and accent to DOM
   useEffect(() => {
     const stored = localStorage.getItem("lifeos-theme") as Theme | null;
     const prefersDark = window.matchMedia(
@@ -36,10 +54,14 @@ export function useTheme() {
     } else if (prefersDark) {
       applyTheme("dark");
     }
+
+    // Apply accent from preferences
+    initAccentAttribute();
   }, []);
 
   const setTheme = useCallback((t: Theme) => {
     localStorage.setItem("lifeos-theme", t);
+    persistTheme(t);
     applyTheme(t);
   }, []);
 
@@ -48,7 +70,17 @@ export function useTheme() {
     setTheme(next);
   }, [theme, setTheme]);
 
-  return { theme, setTheme, toggleTheme };
+  const accent = useCallback((): AccentColor => {
+    if (typeof window === "undefined") return "amber";
+    return getAccent();
+  }, []);
+
+  const setAccent = useCallback((a: AccentColor) => {
+    persistAccent(a);
+    notify();
+  }, []);
+
+  return { theme, setTheme, toggleTheme, accent, setAccent };
 }
 
 function applyTheme(theme: Theme) {
