@@ -14,6 +14,7 @@ import { Route as ShoppingRouteImport } from './routes/shopping'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as RemindersRouteImport } from './routes/reminders'
+import { Route as LifescoreRouteImport } from './routes/lifescore'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as FinancesRouteImport } from './routes/finances'
@@ -46,6 +47,11 @@ const SearchRoute = SearchRouteImport.update({
 const RemindersRoute = RemindersRouteImport.update({
   id: '/reminders',
   path: '/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LifescoreRoute = LifescoreRouteImport.update({
+  id: '/lifescore',
+  path: '/lifescore',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HealthRoute = HealthRouteImport.update({
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/finances': typeof FinancesRoute
   '/goals': typeof GoalsRoute
   '/health': typeof HealthRoute
+  '/lifescore': typeof LifescoreRoute
   '/reminders': typeof RemindersRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/finances': typeof FinancesRoute
   '/goals': typeof GoalsRoute
   '/health': typeof HealthRoute
+  '/lifescore': typeof LifescoreRoute
   '/reminders': typeof RemindersRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/finances': typeof FinancesRoute
   '/goals': typeof GoalsRoute
   '/health': typeof HealthRoute
+  '/lifescore': typeof LifescoreRoute
   '/reminders': typeof RemindersRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/finances'
     | '/goals'
     | '/health'
+    | '/lifescore'
     | '/reminders'
     | '/search'
     | '/settings'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/finances'
     | '/goals'
     | '/health'
+    | '/lifescore'
     | '/reminders'
     | '/search'
     | '/settings'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/finances'
     | '/goals'
     | '/health'
+    | '/lifescore'
     | '/reminders'
     | '/search'
     | '/settings'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   FinancesRoute: typeof FinancesRoute
   GoalsRoute: typeof GoalsRoute
   HealthRoute: typeof HealthRoute
+  LifescoreRoute: typeof LifescoreRoute
   RemindersRoute: typeof RemindersRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
@@ -234,6 +247,13 @@ declare module '@tanstack/react-router' {
       path: '/reminders'
       fullPath: '/reminders'
       preLoaderRoute: typeof RemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lifescore': {
+      id: '/lifescore'
+      path: '/lifescore'
+      fullPath: '/lifescore'
+      preLoaderRoute: typeof LifescoreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/health': {
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   FinancesRoute: FinancesRoute,
   GoalsRoute: GoalsRoute,
   HealthRoute: HealthRoute,
+  LifescoreRoute: LifescoreRoute,
   RemindersRoute: RemindersRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,

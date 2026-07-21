@@ -12,6 +12,7 @@ import {
   Globe,
   Sparkles,
   Wallet,
+  Activity,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -34,6 +35,7 @@ export const navItems: NavItem[] = [
   { id: "travel", label: "Travel", icon: Globe, path: "/travel" },
   { id: "family", label: "Family Hub", icon: Users, path: "/family" },
   { id: "reminders", label: "Reminders", icon: Bell, path: "/reminders" },
+  { id: "lifescore", label: "Life Score", icon: Activity, path: "/lifescore" },
   { id: "search", label: "Smart Search", icon: Search, path: "/search" },
   { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
 ];
