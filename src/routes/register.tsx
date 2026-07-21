@@ -18,7 +18,7 @@ function RegisterPage() {
 
   // Already logged in — redirect to dashboard
   if (user) {
-    navigate({ to: "/", replace: true });
+    navigate({ to: "/dashboard", replace: true });
     return null;
   }
 
@@ -50,7 +50,7 @@ function RegisterPage() {
       setIsSubmitting(true);
       try {
         await register(email.trim(), password);
-        navigate({ to: "/", replace: true });
+        navigate({ to: "/dashboard", replace: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Registration failed");
       } finally {
@@ -65,6 +65,19 @@ function RegisterPage() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-gray-50 px-4 py-12">
       <div className="w-full max-w-md">
+        {/* Back to home */}
+        <div className="mb-6">
+          <a
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-indigo-600"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Back to Home
+          </a>
+        </div>
+
         {/* Logo */}
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-md shadow-indigo-200">

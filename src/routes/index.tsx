@@ -1,728 +1,442 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { useState, useCallback } from "react";
-import { getDb } from "../db";
-import { generateLeads } from "../lead-generator";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "../auth-context";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface Lead {
-  id: number;
-  company_name: string;
-  industry: string;
-  contact_name: string;
-  email: string;
-  phone: string;
-  source: string;
-  score: number;
-  business_type: string;
-  status: string;
-  created_at: string;
-}
-
-type LeadStatus = "new" | "contacted" | "qualified" | "archived";
-
-// ─── Server Functions ────────────────────────────────────────────────────────
-
-const fetchLeadsFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<Lead[]> => {
-    const db = getDb();
-    return db
-      .prepare("SELECT * FROM leads ORDER BY created_at DESC LIMIT 100")
-      .all() as Lead[];
-  },
-);
-
-const generateLeadsFn = createServerFn().handler(
-  async (params: {
-    businessType: string;
-    location?: string;
-  }): Promise<{ leads: Lead[]; count: number }> => {
-    const location =
-      params.location && params.location.trim().length > 0
-        ? params.location.trim()
-        : undefined;
-
-    const leads = await generateLeads(params.businessType, 10, location);
-    const db = getDb();
-
-    const insert = db.prepare(`
-      INSERT INTO leads (company_name, industry, contact_name, email, phone, source, score, business_type, status, created_at)
-      VALUES ($company_name, $industry, $contact_name, $email, $phone, $source, $score, $business_type, $status, $created_at)
-    `);
-
-    const insertMany = db.transaction((items: typeof leads) => {
-      for (const lead of items) {
-        insert.run({
-          $company_name: lead.company_name,
-          $industry: lead.industry,
-          $contact_name: lead.contact_name,
-          $email: lead.email,
-          $phone: lead.phone,
-          $source: lead.source,
-          $score: lead.score,
-          $business_type: lead.business_type,
-          $status: lead.status,
-          $created_at: lead.created_at,
-        });
-      }
-    });
-
-    insertMany(leads);
-
-    const insertedLeads = db
-      .prepare(
-        "SELECT * FROM leads WHERE business_type = ? ORDER BY id DESC LIMIT ?",
-      )
-      .all(params.businessType, 10) as Lead[];
-
-    return { leads: insertedLeads, count: insertedLeads.length };
-  },
-);
-
-const updateLeadStatusFn = createServerFn().handler(
-  async ({
-    id,
-    status,
-  }: {
-    id: number;
-    status: string;
-  }): Promise<Lead> => {
-    const db = getDb();
-    db.prepare("UPDATE leads SET status = ? WHERE id = ?").run(status, id);
-    return db
-      .prepare("SELECT * FROM leads WHERE id = ?")
-      .get(id) as Lead;
-  },
-);
-
-// ─── Route ───────────────────────────────────────────────────────────────────
-
 export const Route = createFileRoute("/")({
-  loader: () => fetchLeadsFn(),
-  component: Dashboard,
+  component: LandingPage,
 });
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Reusable Components ──────────────────────────────────────────────────
 
-function getRelativeTime(dateString: string): string {
-  const now = Date.now();
-  const then = new Date(dateString).getTime();
-  const diffMs = now - then;
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return "Just now";
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-
-  const weeks = Math.floor(days / 7);
-  if (weeks < 4) return `${weeks}w ago`;
-
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
-}
-
-function getScoreBadge(score: number) {
-  if (score >= 70) {
-    return {
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-      ring: "ring-emerald-200",
-      label: "High",
-    };
-  }
-  if (score >= 50) {
-    return {
-      bg: "bg-amber-50",
-      text: "text-amber-700",
-      ring: "ring-amber-200",
-      label: "Medium",
-    };
-  }
-  return {
-    bg: "bg-red-50",
-    text: "text-red-700",
-    ring: "ring-red-200",
-    label: "Low",
+function Logo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const sizeClasses = {
+    sm: "h-8 w-8",
+    md: "h-10 w-10",
+    lg: "h-12 w-12",
   };
-}
-
-function getSourceIcon(source: string): string {
-  const map: Record<string, string> = {
-    LinkedIn: "🔗",
-    "Google Maps": "📍",
-    Yelp: "⭐",
-    "Industry Directory": "📋",
-    "Trade Show": "🏢",
-  };
-  return map[source] ?? "🌐";
-}
-
-// ─── Components ──────────────────────────────────────────────────────────────
-
-function PlanBanner() {
-  const { user } = useAuth();
-  const plan = user?.plan ?? "free";
-  const usage = user?.usage;
-  const leadsUsed = usage?.leads_used ?? 0;
-  const leadsLimit = usage?.leads_limit ?? 10;
-  const isAtLimit = leadsUsed >= leadsLimit && plan === "free";
-
-  const planNames: Record<string, string> = {
-    free: "Free",
-    starter: "Starter",
-    pro: "Pro",
-  };
-
-  const planColors: Record<string, string> = {
-    free: "bg-gray-100 text-gray-700 border-gray-200",
-    starter: "bg-blue-50 text-blue-700 border-blue-200",
-    pro: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  };
-
   return (
-    <div className="mb-6">
-      <div
-        className={`mx-auto flex max-w-2xl flex-col items-center gap-3 rounded-xl border p-4 sm:flex-row sm:justify-between ${
-          planColors[plan] ?? planColors.free
-        }`}
+    <div
+      className={`flex ${sizeClasses[size]} items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-md shadow-indigo-200`}
+    >
+      <svg
+        className={size === "sm" ? "h-4 w-4 text-white" : size === "lg" ? "h-6 w-6 text-white" : "h-5 w-5 text-white"}
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={2}
+        stroke="currentColor"
       >
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold shadow-sm">
-            {planNames[plan] ?? plan} plan
-          </span>
-          <span className="text-sm">
-            {leadsUsed} /{" "}
-            {leadsLimit === Infinity ? "∞" : leadsLimit} leads{" "}
-            {plan === "starter" ? "this month" : "used"}
-          </span>
-        </div>
-        {plan !== "pro" && (
-          <a
-            href="/pricing"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-indigo-600 shadow-sm transition-all hover:bg-indigo-50 hover:text-indigo-800"
-          >
-            Upgrade
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-              />
-            </svg>
-          </a>
-        )}
-      </div>
-      {isAtLimit && (
-        <div className="mx-auto mt-3 max-w-2xl rounded-xl border-2 border-amber-200 bg-amber-50 p-4 text-center">
-          <p className="text-sm font-semibold text-amber-800">
-            You&apos;ve used all your free leads!{" "}
-            <a
-              href="/pricing"
-              className="underline decoration-amber-400 underline-offset-2 transition-colors hover:text-amber-900"
-            >
-              Upgrade to Starter or Pro
-            </a>{" "}
-            to keep generating.
-          </p>
-        </div>
-      )}
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
+        />
+      </svg>
     </div>
   );
 }
 
-function DashboardHeader() {
+// ─── Sections ─────────────────────────────────────────────────────────────
+
+function Header() {
   const { user, logout } = useAuth();
 
   return (
-    <header className="mb-10">
-      {/* Top bar with user info */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="inline-flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-md shadow-indigo-200">
-            <svg
-              className="h-5 w-5 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+    <header className="relative z-10 border-b border-gray-100 bg-white/80 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        {/* Logo */}
+        <Link to="/" className="inline-flex items-center gap-2.5">
+          <Logo size="sm" />
+          <span className="text-xl font-bold tracking-tight text-gray-900">
             LeadFlow
-          </h1>
-        </div>
+          </span>
+        </Link>
 
-        {/* User badge + nav */}
-        {user && (
-          <div className="flex items-center gap-3">
-            <a
-              href="/pricing"
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            >
-              Pricing
-            </a>
-            <span className="text-sm font-medium text-gray-600">
-              {user.email}
-            </span>
-            <button
-              onClick={logout}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-700"
-            >
-              Log out
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Tagline */}
-      <div className="text-center">
-        <p className="text-lg font-medium text-indigo-600">
-          Automated Lead Generation
-        </p>
-        <p className="mt-1.5 text-sm text-gray-500">
-          Enter your business type and get qualified leads instantly
-        </p>
+        {/* Nav */}
+        <nav className="flex items-center gap-3">
+          <Link
+            to="/pricing"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          >
+            Pricing
+          </Link>
+          {user ? (
+            <>
+              <Link
+                to="/dashboard"
+                className="rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:from-indigo-700 hover:to-blue-700 active:scale-[0.98]"
+              >
+                Go to Dashboard
+              </Link>
+              <button
+                onClick={logout}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-500 shadow-sm transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+              >
+                Log in
+              </Link>
+              <Link
+                to="/register"
+                className="rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:from-indigo-700 hover:to-blue-700 active:scale-[0.98]"
+              >
+                Get Started Free
+              </Link>
+            </>
+          )}
+        </nav>
       </div>
     </header>
   );
 }
 
-function StatsBar({ leads }: { leads: Lead[] }) {
-  const totalLeads = leads.length;
+function HeroSection() {
+  const { user } = useAuth();
 
-  const now = new Date();
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const newThisWeek = leads.filter(
-    (l) => new Date(l.created_at) >= oneWeekAgo,
-  ).length;
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-b from-white via-indigo-50/40 to-white px-4 py-20 sm:px-6 lg:px-8">
+      {/* Decorative background blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -right-40 -top-40 h-[500px] w-[500px] rounded-full bg-indigo-100/60 blur-3xl" />
+        <div className="absolute -bottom-20 -left-20 h-[400px] w-[400px] rounded-full bg-blue-100/50 blur-3xl" />
+      </div>
 
-  const avgScore =
-    totalLeads > 0
-      ? Math.round(leads.reduce((sum, l) => sum + l.score, 0) / totalLeads)
-      : 0;
+      <div className="relative z-10 mx-auto max-w-4xl text-center">
+        {/* Badge */}
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+          </svg>
+          Automated lead generation for any business
+        </div>
 
-  const stats = [
+        <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-6xl lg:text-7xl">
+          Find Qualified Leads{" "}
+          <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+            on Autopilot
+          </span>
+        </h1>
+
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 sm:text-xl">
+          Tell LeadFlow what business you&apos;re in, and we continuously find and deliver
+          qualified potential customers — sourced from real data like OpenStreetMap.
+          No manual research required.
+        </p>
+
+        {/* CTAs */}
+        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          {user ? (
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-xl active:scale-[0.98]"
+            >
+              Go to Dashboard
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/register"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-xl active:scale-[0.98]"
+              >
+                Get Started Free
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </Link>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-8 py-4 text-base font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98]"
+              >
+                View Pricing
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* Social proof */}
+        <p className="mt-6 text-sm text-gray-400">
+          Free plan available · No credit card required
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function HowItWorksSection() {
+  const steps = [
     {
-      label: "Total Leads",
-      value: totalLeads.toLocaleString(),
+      number: "1",
+      title: "Tell us your business type",
+      description:
+        "Describe what kind of business you run — plumbing, marketing agency, dentist, or anything else. LeadFlow adapts to your niche.",
       icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+        <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
         </svg>
       ),
-      color: "bg-blue-50 text-blue-700",
     },
     {
-      label: "New This Week",
-      value: newThisWeek.toLocaleString(),
+      number: "2",
+      title: "We search real data sources",
+      description:
+        "LeadFlow taps into OpenStreetMap and other public datasets to find businesses matching your target profile — all with real contact information.",
       icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
         </svg>
       ),
-      color: "bg-emerald-50 text-emerald-700",
     },
     {
-      label: "Avg Score",
-      value: avgScore.toString(),
+      number: "3",
+      title: "Get qualified leads delivered",
+      description:
+        "Review your leads on a clean dashboard. Each lead includes company name, contact details, industry, and a quality score. Track status from new to qualified.",
+      icon: (
+        <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <section className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        {/* Section header */}
+        <div className="mb-16 text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            How It Works
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
+            Three simple steps from setup to qualified leads
+          </p>
+        </div>
+
+        {/* Steps */}
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-3">
+          {steps.map((step) => (
+            <div key={step.number} className="relative text-center">
+              {/* Step number */}
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-2xl font-bold text-white shadow-lg shadow-indigo-200">
+                {step.number}
+              </div>
+              {/* Icon */}
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                {step.icon}
+              </div>
+              <h3 className="mb-3 text-xl font-bold text-gray-900">
+                {step.title}
+              </h3>
+              <p className="text-sm leading-relaxed text-gray-500">
+                {step.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FeaturesSection() {
+  const features = [
+    {
+      title: "Real Data Sources",
+      description:
+        "Leads are sourced from OpenStreetMap and other public databases — not scraped or guessed. You get real businesses with verified contact info.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+      ),
+    },
+    {
+      title: "Location-Based Search",
+      description:
+        "Target businesses by city or region. Find leads where your customers actually are — not random contacts from a database.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+        </svg>
+      ),
+    },
+    {
+      title: "Lead Scoring",
+      description:
+        "Every lead comes with a quality score. Focus your time on the highest-value prospects and skip the noise.",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
         </svg>
       ),
-      color: "bg-purple-50 text-purple-700",
+    },
+    {
+      title: "Status Tracking",
+      description:
+        "Mark leads as New, Contacted, Qualified, or Archived. Keep your pipeline organized and never lose track of a prospect.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      title: "No Manual Research",
+      description:
+        "Stop spending hours Googling for leads. LeadFlow automates the entire discovery process so you can focus on closing deals.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+        </svg>
+      ),
+    },
+    {
+      title: "Adapts to Any Business",
+      description:
+        "From plumbers to marketing agencies to dentists — just tell LeadFlow what you do, and it finds the right prospects for your niche.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+        </svg>
+      ),
     },
   ];
 
   return (
-    <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-      {stats.map((stat) => (
-        <div
-          key={stat.label}
-          className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
-        >
-          <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${stat.color}`}>
-            {stat.icon}
-          </div>
-          <div>
-            <p className="text-2xl font-bold tracking-tight text-gray-900">
-              {stat.value}
-            </p>
-            <p className="text-sm text-gray-500">{stat.label}</p>
-          </div>
+    <section className="bg-gray-50 px-4 py-20 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        {/* Section header */}
+        <div className="mb-16 text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            Everything You Need to Generate Leads
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
+            Purpose-built features that replace hours of manual research
+          </p>
         </div>
-      ))}
-    </div>
-  );
-}
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-indigo-50">
-        <svg
-          className="h-12 w-12 text-indigo-400"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1}
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6"
-          />
-        </svg>
-      </div>
-      <h3 className="mb-2 text-xl font-semibold text-gray-900">No leads yet</h3>
-      <p className="max-w-sm text-sm text-gray-500">
-        Enter a business type above and click "Generate Leads" to find qualified
-        potential customers for your business.
-      </p>
-    </div>
-  );
-}
-
-function LeadCard({
-  lead,
-  onStatusChange,
-  isUpdating,
-}: {
-  lead: Lead;
-  onStatusChange: (id: number, status: LeadStatus) => void;
-  isUpdating: boolean;
-}) {
-  const scoreBadge = getScoreBadge(lead.score);
-
-  return (
-    <div className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:border-gray-300">
-      {/* Top row: company + score */}
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-lg font-bold text-gray-900">
-            {lead.company_name}
-          </h3>
-          <span className="inline-block mt-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-            {lead.industry}
-          </span>
-        </div>
-        <div
-          className={`flex flex-shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${scoreBadge.bg} ${scoreBadge.text} ${scoreBadge.ring}`}
-        >
-          <span>{lead.score}</span>
-          <span className="opacity-60">·</span>
-          <span>{scoreBadge.label}</span>
-        </div>
-      </div>
-
-      {/* Contact details */}
-      <div className="mb-4 space-y-1.5 text-sm">
-        <div className="flex items-center gap-2 text-gray-700">
-          <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-          </svg>
-          <span className="font-medium">{lead.contact_name}</span>
-        </div>
-        <div className="flex items-center gap-2 text-gray-600">
-          <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-          </svg>
-          <a
-            href={`mailto:${lead.email}`}
-            className="truncate text-indigo-600 hover:text-indigo-800 hover:underline"
-          >
-            {lead.email}
-          </a>
-        </div>
-        <div className="flex items-center gap-2 text-gray-600">
-          <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-          </svg>
-          <span>{lead.phone}</span>
-        </div>
-      </div>
-
-      {/* Bottom row: source, time, status */}
-      <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-            <span>{getSourceIcon(lead.source)}</span>
-            <span>{lead.source}</span>
-          </span>
-          <span className="text-xs text-gray-400">
-            {getRelativeTime(lead.created_at)}
-          </span>
-        </div>
-        <div className="relative">
-          <select
-            value={lead.status}
-            disabled={isUpdating}
-            onChange={(e) => onStatusChange(lead.id, e.target.value as LeadStatus)}
-            className={`appearance-none rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-2.5 pr-8 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-50 ${
-              lead.status === "new"
-                ? "text-blue-700 bg-blue-50 border-blue-200"
-                : lead.status === "contacted"
-                  ? "text-amber-700 bg-amber-50 border-amber-200"
-                  : lead.status === "qualified"
-                    ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                    : "text-gray-500 bg-gray-50 border-gray-200"
-            }`}
-          >
-            <option value="new">New</option>
-            <option value="contacted">Contacted</option>
-            <option value="qualified">Qualified</option>
-            <option value="archived">Archived</option>
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-1 flex items-center">
-            <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
-          </div>
-          {isUpdating && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/70">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+        {/* Feature grid */}
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((feature) => (
+            <div
+              key={feature.title}
+              className="group rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-gray-300"
+            >
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-colors">
+                {feature.icon}
+              </div>
+              <h3 className="mb-2 text-base font-bold text-gray-900">
+                {feature.title}
+              </h3>
+              <p className="text-sm leading-relaxed text-gray-500">
+                {feature.description}
+              </p>
             </div>
-          )}
+          ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
-function LeadGrid({
-  leads,
-  onStatusChange,
-  updatingIds,
-}: {
-  leads: Lead[];
-  onStatusChange: (id: number, status: LeadStatus) => void;
-  updatingIds: Set<number>;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-      {leads.map((lead) => (
-        <LeadCard
-          key={lead.id}
-          lead={lead}
-          onStatusChange={onStatusChange}
-          isUpdating={updatingIds.has(lead.id)}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Main Dashboard Component ────────────────────────────────────────────────
-
-function Dashboard() {
-  const initialLeads = Route.useLoaderData() as Lead[];
-  const [leads, setLeads] = useState<Lead[]>(initialLeads ?? []);
-  const [businessType, setBusinessType] = useState("");
-  const [location, setLocation] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
-  const [error, setError] = useState<string | null>(null);
+function PricingTeaser() {
   const { user } = useAuth();
 
-  const plan = user?.plan ?? "free";
-  const usage = user?.usage;
-  const leadsUsed = usage?.leads_used ?? 0;
-  const leadsLimit = usage?.leads_limit ?? 10;
-  const isAtLimit = leadsUsed >= leadsLimit && plan === "free";
-
-  const handleGenerate = useCallback(async () => {
-    const trimmed = businessType.trim();
-    if (!trimmed) return;
-
-    setIsGenerating(true);
-    setError(null);
-    try {
-      await generateLeadsFn({
-        businessType: trimmed,
-        location: location.trim() || undefined,
-      });
-      const allLeads = await fetchLeadsFn();
-      setLeads(allLeads);
-      setBusinessType("");
-      setLocation("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate leads");
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [businessType, location]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !isGenerating) {
-        handleGenerate();
-      }
+  const plans = [
+    {
+      name: "Free",
+      price: "$0",
+      period: "forever",
+      description: "Try out LeadFlow with basic lead generation.",
+      features: ["10 leads lifetime", "Single business type", "Email support"],
+      highlighted: false,
     },
-    [handleGenerate, isGenerating],
-  );
-
-  const handleStatusChange = useCallback(
-    async (id: number, status: LeadStatus) => {
-      setUpdatingIds((prev) => new Set(prev).add(id));
-      try {
-        const updated = await updateLeadStatusFn({ id, status });
-        setLeads((prev) =>
-          prev.map((l) => (l.id === id ? { ...l, ...updated } : l)),
-        );
-      } catch (err) {
-        console.error("Failed to update status:", err);
-      } finally {
-        setUpdatingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-      }
+    {
+      name: "Starter",
+      price: "$99",
+      period: "/year",
+      description: "For growing businesses that need a steady pipeline.",
+      features: [
+        "50 leads/month",
+        "Multiple business types",
+        "Location-based search",
+        "Email support",
+      ],
+      highlighted: false,
     },
-    [],
-  );
-
-  const hasLeads = leads.length > 0;
+    {
+      name: "Pro",
+      price: "$199",
+      period: "/year",
+      description: "For power users who want unlimited leads.",
+      features: [
+        "Unlimited leads",
+        "Everything in Starter",
+        "Enriched contact data",
+        "Priority support",
+      ],
+      highlighted: true,
+    },
+  ];
 
   return (
-    <div className="min-h-dvh bg-gray-50">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <DashboardHeader />
+    <section className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        {/* Section header */}
+        <div className="mb-16 text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            Simple, Transparent Pricing
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
+            Start free, upgrade when you&apos;re ready to grow
+          </p>
+        </div>
 
-        <PlanBanner />
+        {/* Plan cards */}
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          {plans.map((plan) => (
+            <div
+              key={plan.name}
+              className={`relative flex flex-col rounded-2xl border-2 bg-white p-8 shadow-sm ${
+                plan.highlighted
+                  ? "border-indigo-500 shadow-indigo-100"
+                  : "border-gray-200"
+              }`}
+            >
+              {plan.highlighted && (
+                <div className="absolute -top-3 left-0 right-0 mx-auto w-fit">
+                  <span className="inline-block rounded-full bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow-md">
+                    Recommended
+                  </span>
+                </div>
+              )}
 
-        {/* Business Type + Location Input */}
-        {isAtLimit ? (
-          /* Upgrade CTA when free plan limit reached */
-          <div className="mb-8">
-            <div className="mx-auto max-w-2xl rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-8 text-center shadow-sm">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
-                <svg
-                  className="h-7 w-7 text-amber-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-                  />
-                </svg>
-              </div>
-              <h3 className="mb-2 text-xl font-bold text-amber-900">
-                Free plan limit reached
-              </h3>
-              <p className="mb-6 text-sm text-amber-700">
-                You&apos;ve used all {leadsLimit} of your free leads. Upgrade to
-                continue generating qualified leads for your business.
-              </p>
-              <a
-                href="/pricing"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98]"
-              >
-                View Plans
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-                  />
-                </svg>
-              </a>
-            </div>
-          </div>
-        ) : (
-          /* Business Type + Location Input */
-          <div className="mb-8">
-            <div className="mx-auto flex max-w-2xl flex-col gap-3">
-              {/* Side-by-side inputs */}
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={businessType}
-                    onChange={(e) => setBusinessType(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="e.g., plumbing, marketing agency, dentist..."
-                    disabled={isGenerating}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
-                  />
-                </div>
-                <div className="relative sm:w-56">
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="City or region (optional)"
-                    disabled={isGenerating}
-                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
-                  />
-                </div>
+              <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+              <p className="mt-1 text-sm text-gray-500">{plan.description}</p>
+
+              <div className="mt-6">
+                <span className="text-4xl font-extrabold tracking-tight text-gray-900">
+                  {plan.price}
+                </span>
+                <span className="text-sm font-medium text-gray-500">
+                  {plan.period}
+                </span>
               </div>
 
-              {/* Generate button below */}
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerating || !businessType.trim()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-md disabled:active:scale-100"
-              >
-                {isGenerating ? (
-                  <>
+              <ul className="mt-8 flex-1 space-y-3">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-3">
                     <svg
-                      className="h-4 w-4 animate-spin"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      className="h-4 w-4"
+                      className="h-5 w-5 flex-shrink-0 text-emerald-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       strokeWidth={2}
@@ -731,47 +445,129 @@ function Dashboard() {
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6"
+                        d="M4.5 12.75l6 6 9-13.5"
                       />
                     </svg>
-                    Generate Leads
-                  </>
-                )}
-              </button>
+                    <span className="text-sm text-gray-700">{feature}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            {error && (
-              <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-red-600">
-                {error}
-              </p>
-            )}
-          </div>
-        )}
+          ))}
+        </div>
 
-        {/* Stats + Leads or Empty State */}
-        {hasLeads ? (
-          <>
-            <StatsBar leads={leads} />
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-500">
-                Showing <span className="text-gray-900">{leads.length}</span>{" "}
-                {leads.length === 1 ? "lead" : "leads"}
-              </p>
-            </div>
-            <LeadGrid
-              leads={leads}
-              onStatusChange={handleStatusChange}
-              updatingIds={updatingIds}
-            />
-          </>
-        ) : (
-          <EmptyState />
-        )}
-
-        {/* Footer */}
-        <footer className="mt-16 border-t border-gray-200 pt-6 text-center text-xs text-gray-400">
-          LeadFlow &mdash; Automated Lead Generation
-        </footer>
+        {/* CTA to full pricing */}
+        <div className="mt-10 text-center">
+          <Link
+            to="/pricing"
+            className="inline-flex items-center gap-2 rounded-xl border-2 border-indigo-600 bg-white px-6 py-3 text-sm font-semibold text-indigo-600 shadow-sm transition-all hover:bg-indigo-50 active:scale-[0.98]"
+          >
+            View Full Pricing Details
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </Link>
+        </div>
       </div>
+    </section>
+  );
+}
+
+function CtaSection() {
+  const { user } = useAuth();
+
+  return (
+    <section className="bg-gradient-to-br from-indigo-600 to-blue-700 px-4 py-20 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl text-center">
+        <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+          Ready to Stop Hunting for Leads?
+        </h2>
+        <p className="mx-auto mt-4 max-w-xl text-lg text-indigo-100">
+          Join businesses that use LeadFlow to find qualified prospects every
+          day. Start free — no credit card required.
+        </p>
+        <div className="mt-10">
+          {user ? (
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-indigo-700 shadow-lg shadow-indigo-900/20 transition-all hover:bg-indigo-50 active:scale-[0.98]"
+            >
+              Go to Dashboard
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
+          ) : (
+            <Link
+              to="/register"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-indigo-700 shadow-lg shadow-indigo-900/20 transition-all hover:bg-indigo-50 active:scale-[0.98]"
+            >
+              Get Started Free
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </Link>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-gray-200 bg-white px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
+          {/* Logo & copyright */}
+          <div className="flex items-center gap-3">
+            <Logo size="sm" />
+            <span className="text-sm text-gray-500">
+              &copy; {new Date().getFullYear()} LeadFlow. All rights reserved.
+            </span>
+          </div>
+
+          {/* Links */}
+          <nav className="flex items-center gap-6">
+            <Link
+              to="/pricing"
+              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
+            >
+              Pricing
+            </Link>
+            <Link
+              to="/login"
+              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
+            >
+              Log in
+            </Link>
+            <Link
+              to="/register"
+              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
+            >
+              Sign up
+            </Link>
+          </nav>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+// ─── Landing Page ─────────────────────────────────────────────────────────
+
+function LandingPage() {
+  return (
+    <div className="min-h-dvh bg-white">
+      <Header />
+      <main>
+        <HeroSection />
+        <HowItWorksSection />
+        <FeaturesSection />
+        <PricingTeaser />
+        <CtaSection />
+      </main>
+      <Footer />
     </div>
   );
 }

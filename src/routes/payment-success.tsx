@@ -170,7 +170,7 @@ function PaymentSuccessPage() {
               </p>
               <div className="mt-8">
                 <a
-                  href="/"
+                  href="/dashboard"
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98]"
                 >
                   Go to Dashboard
@@ -224,7 +224,7 @@ function PaymentSuccessPage() {
                   Try Again
                 </button>
                 <a
-                  href="/"
+                  href="/dashboard"
                   className="rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50"
                 >
                   Go to Dashboard
@@ -259,7 +259,7 @@ function PaymentSuccessPage() {
               </p>
               <div className="mt-8">
                 <a
-                  href="/"
+                  href="/dashboard"
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98]"
                 >
                   Go to Dashboard

@@ -351,7 +351,7 @@ function UpgradeActivation() {
         });
 
         setTimeout(() => {
-          navigate({ to: "/", replace: true });
+          navigate({ to: "/dashboard", replace: true });
         }, 1500);
       } catch {
         setMessage({
@@ -464,11 +464,24 @@ function PricingPage() {
   return (
     <div className="min-h-dvh bg-gray-50">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+        {/* Back to home */}
+        <div className="mb-6">
+          <a
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-indigo-600"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Back to Home
+          </a>
+        </div>
+
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           {/* Logo */}
           <a
-            href={user ? "/" : "/login"}
+            href="/"
             className="inline-flex items-center gap-2.5"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-md shadow-indigo-200">
@@ -496,7 +509,7 @@ function PricingPage() {
             {user ? (
               <>
                 <a
-                  href="/"
+                  href="/dashboard"
                   className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
                 >
                   Dashboard

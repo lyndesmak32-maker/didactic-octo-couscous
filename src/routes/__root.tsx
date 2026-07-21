@@ -55,19 +55,20 @@ function AuthGuard({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  // Determine if we're on an auth page (login or register)
+  // Determine if we're on a public page (no auth required)
   const currentPath = router.state.location.pathname;
-  const isAuthPage =
+  const isPublicPage =
+    currentPath === "/" ||
     currentPath === "/login" ||
     currentPath === "/register" ||
     currentPath === "/pricing" ||
     currentPath === "/payment-success";
 
   useEffect(() => {
-    if (!isLoading && !user && !isAuthPage) {
+    if (!isLoading && !user && !isPublicPage) {
       router.navigate({ to: "/login", replace: true });
     }
-  }, [user, isLoading, isAuthPage, router]);
+  }, [user, isLoading, isPublicPage, router]);
 
   // Loading spinner while checking session
   if (isLoading) {
@@ -81,8 +82,8 @@ function AuthGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  // On auth pages, let them through even if not authenticated
-  if (!user && isAuthPage) {
+  // On public pages, let them through even if not authenticated
+  if (!user && isPublicPage) {
     return <>{children}</>;
   }
 
