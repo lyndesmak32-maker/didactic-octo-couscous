@@ -11,9 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiLeadsRouteImport } from './routes/api/leads'
+import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiLeadsIndexRouteImport } from './routes/api/leads/index'
 import { Route as ApiLeadsGenerateRouteImport } from './routes/api/leads/generate'
 import { Route as ApiLeadsIdRouteImport } from './routes/api/leads/$id'
+import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth/register'
+import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
+import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
+import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiLeadsRoute = ApiLeadsRouteImport.update({
   id: '/api/leads',
   path: '/api/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthRoute = ApiAuthRouteImport.update({
+  id: '/api/auth',
+  path: '/api/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLeadsIndexRoute = ApiLeadsIndexRouteImport.update({
@@ -40,16 +50,46 @@ const ApiLeadsIdRoute = ApiLeadsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiLeadsRoute,
 } as any)
+const ApiAuthRegisterRoute = ApiAuthRegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => ApiAuthRoute,
+} as any)
+const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => ApiAuthRoute,
+} as any)
+const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
+  id: '/logout',
+  path: '/logout',
+  getParentRoute: () => ApiAuthRoute,
+} as any)
+const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => ApiAuthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/leads/$id': typeof ApiLeadsIdRoute
   '/api/leads/generate': typeof ApiLeadsGenerateRoute
   '/api/leads/': typeof ApiLeadsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/auth': typeof ApiAuthRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/leads/$id': typeof ApiLeadsIdRoute
   '/api/leads/generate': typeof ApiLeadsGenerateRoute
   '/api/leads': typeof ApiLeadsIndexRoute
@@ -57,7 +97,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
+  '/api/auth/login': typeof ApiAuthLoginRoute
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
+  '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/register': typeof ApiAuthRegisterRoute
   '/api/leads/$id': typeof ApiLeadsIdRoute
   '/api/leads/generate': typeof ApiLeadsGenerateRoute
   '/api/leads/': typeof ApiLeadsIndexRoute
@@ -66,16 +111,35 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/auth'
     | '/api/leads'
+    | '/api/auth/login'
+    | '/api/auth/logout'
+    | '/api/auth/me'
+    | '/api/auth/register'
     | '/api/leads/$id'
     | '/api/leads/generate'
     | '/api/leads/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/leads/$id' | '/api/leads/generate' | '/api/leads'
+  to:
+    | '/'
+    | '/api/auth'
+    | '/api/auth/login'
+    | '/api/auth/logout'
+    | '/api/auth/me'
+    | '/api/auth/register'
+    | '/api/leads/$id'
+    | '/api/leads/generate'
+    | '/api/leads'
   id:
     | '__root__'
     | '/'
+    | '/api/auth'
     | '/api/leads'
+    | '/api/auth/login'
+    | '/api/auth/logout'
+    | '/api/auth/me'
+    | '/api/auth/register'
     | '/api/leads/$id'
     | '/api/leads/generate'
     | '/api/leads/'
@@ -83,6 +147,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiAuthRoute: typeof ApiAuthRouteWithChildren
   ApiLeadsRoute: typeof ApiLeadsRouteWithChildren
 }
 
@@ -100,6 +165,13 @@ declare module '@tanstack/react-router' {
       path: '/api/leads'
       fullPath: '/api/leads'
       preLoaderRoute: typeof ApiLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth': {
+      id: '/api/auth'
+      path: '/api/auth'
+      fullPath: '/api/auth'
+      preLoaderRoute: typeof ApiAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/leads/': {
@@ -123,8 +195,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLeadsIdRouteImport
       parentRoute: typeof ApiLeadsRoute
     }
+    '/api/auth/register': {
+      id: '/api/auth/register'
+      path: '/register'
+      fullPath: '/api/auth/register'
+      preLoaderRoute: typeof ApiAuthRegisterRouteImport
+      parentRoute: typeof ApiAuthRoute
+    }
+    '/api/auth/me': {
+      id: '/api/auth/me'
+      path: '/me'
+      fullPath: '/api/auth/me'
+      preLoaderRoute: typeof ApiAuthMeRouteImport
+      parentRoute: typeof ApiAuthRoute
+    }
+    '/api/auth/logout': {
+      id: '/api/auth/logout'
+      path: '/logout'
+      fullPath: '/api/auth/logout'
+      preLoaderRoute: typeof ApiAuthLogoutRouteImport
+      parentRoute: typeof ApiAuthRoute
+    }
+    '/api/auth/login': {
+      id: '/api/auth/login'
+      path: '/login'
+      fullPath: '/api/auth/login'
+      preLoaderRoute: typeof ApiAuthLoginRouteImport
+      parentRoute: typeof ApiAuthRoute
+    }
   }
 }
+
+interface ApiAuthRouteChildren {
+  ApiAuthLoginRoute: typeof ApiAuthLoginRoute
+  ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
+  ApiAuthMeRoute: typeof ApiAuthMeRoute
+  ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
+}
+
+const ApiAuthRouteChildren: ApiAuthRouteChildren = {
+  ApiAuthLoginRoute: ApiAuthLoginRoute,
+  ApiAuthLogoutRoute: ApiAuthLogoutRoute,
+  ApiAuthMeRoute: ApiAuthMeRoute,
+  ApiAuthRegisterRoute: ApiAuthRegisterRoute,
+}
+
+const ApiAuthRouteWithChildren =
+  ApiAuthRoute._addFileChildren(ApiAuthRouteChildren)
 
 interface ApiLeadsRouteChildren {
   ApiLeadsIdRoute: typeof ApiLeadsIdRoute
@@ -144,6 +261,7 @@ const ApiLeadsRouteWithChildren = ApiLeadsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiAuthRoute: ApiAuthRouteWithChildren,
   ApiLeadsRoute: ApiLeadsRouteWithChildren,
 }
 export const routeTree = rootRouteImport

@@ -14,6 +14,7 @@ export function getDb(): Database {
 
   db = new Database(DB_PATH);
   db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA foreign_keys = ON");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS leads (
@@ -31,5 +32,41 @@ export function getDb(): Database {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+
   return db;
+}
+
+export function getUserBySession(
+  sessionId: string,
+): { id: number; email: string } | null {
+  const database = getDb();
+  const row = database
+    .prepare(
+      `SELECT u.id, u.email
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.id = ? AND s.expires_at > ?`,
+    )
+    .get(sessionId, new Date().toISOString()) as
+    | { id: number; email: string }
+    | undefined;
+
+  return row ?? null;
 }
