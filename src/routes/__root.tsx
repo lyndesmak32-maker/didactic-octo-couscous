@@ -3,8 +3,10 @@ import {
   Outlet,
   Scripts,
   createRootRoute,
+  useRouter,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { AuthProvider, useAuth } from "../auth-context";
 
 import appCss from "~/styles/app.css?url";
 
@@ -24,7 +26,11 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <RootDocument>
-      <Outlet />
+      <AuthProvider>
+        <AuthGuard>
+          <Outlet />
+        </AuthGuard>
+      </AuthProvider>
     </RootDocument>
   );
 }
@@ -41,4 +47,46 @@ function RootDocument({ children }: { children: ReactNode }) {
       </body>
     </html>
   );
+}
+
+// ─── Auth Guard ──────────────────────────────────────────────────────────────
+
+function AuthGuard({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  // Determine if we're on an auth page (login or register)
+  const currentPath = router.state.location.pathname;
+  const isAuthPage =
+    currentPath === "/login" || currentPath === "/register";
+
+  useEffect(() => {
+    if (!isLoading && !user && !isAuthPage) {
+      router.navigate({ to: "/login", replace: true });
+    }
+  }, [user, isLoading, isAuthPage, router]);
+
+  // Loading spinner while checking session
+  if (isLoading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-3 border-indigo-200 border-t-indigo-600" />
+          <p className="text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // On auth pages, let them through even if not authenticated
+  if (!user && isAuthPage) {
+    return <>{children}</>;
+  }
+
+  // Not authenticated and not on an auth page — show nothing while redirecting
+  if (!user) {
+    return null;
+  }
+
+  return <>{children}</>;
 }

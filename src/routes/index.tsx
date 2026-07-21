@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { useState, useCallback } from "react";
 import { getDb } from "../db";
 import { generateLeads } from "../lead-generator";
+import { useAuth } from "../auth-context";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -34,8 +35,16 @@ const fetchLeadsFn = createServerFn({ method: "GET" }).handler(
 );
 
 const generateLeadsFn = createServerFn().handler(
-  async (businessType: string): Promise<{ leads: Lead[]; count: number }> => {
-    const leads = generateLeads(businessType, 10);
+  async (params: {
+    businessType: string;
+    location?: string;
+  }): Promise<{ leads: Lead[]; count: number }> => {
+    const location =
+      params.location && params.location.trim().length > 0
+        ? params.location.trim()
+        : undefined;
+
+    const leads = await generateLeads(params.businessType, 10, location);
     const db = getDb();
 
     const insert = db.prepare(`
@@ -66,7 +75,7 @@ const generateLeadsFn = createServerFn().handler(
       .prepare(
         "SELECT * FROM leads WHERE business_type = ? ORDER BY id DESC LIMIT ?",
       )
-      .all(businessType, 10) as Lead[];
+      .all(params.businessType, 10) as Lead[];
 
     return { leads: insertedLeads, count: insertedLeads.length };
   },
@@ -160,32 +169,58 @@ function getSourceIcon(source: string): string {
 // ─── Components ──────────────────────────────────────────────────────────────
 
 function DashboardHeader() {
+  const { user, logout } = useAuth();
+
   return (
-    <header className="mb-10 text-center">
-      <div className="inline-flex items-center gap-2.5 mb-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-md shadow-indigo-200">
-          <svg
-            className="h-5 w-5 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
-            />
-          </svg>
+    <header className="mb-10">
+      {/* Top bar with user info */}
+      <div className="mb-6 flex items-center justify-between">
+        <div className="inline-flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-md shadow-indigo-200">
+            <svg
+              className="h-5 w-5 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            LeadFlow
+          </h1>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-          LeadFlow
-        </h1>
+
+        {/* User badge */}
+        {user && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">
+              {user.email}
+            </span>
+            <button
+              onClick={logout}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+            >
+              Log out
+            </button>
+          </div>
+        )}
       </div>
-      <p className="text-lg font-medium text-indigo-600">Automated Lead Generation</p>
-      <p className="mt-1.5 text-sm text-gray-500">
-        Enter your business type and get qualified leads instantly
-      </p>
+
+      {/* Tagline */}
+      <div className="text-center">
+        <p className="text-lg font-medium text-indigo-600">
+          Automated Lead Generation
+        </p>
+        <p className="mt-1.5 text-sm text-gray-500">
+          Enter your business type and get qualified leads instantly
+        </p>
+      </div>
     </header>
   );
 }
@@ -421,6 +456,7 @@ function Dashboard() {
   const initialLeads = Route.useLoaderData() as Lead[];
   const [leads, setLeads] = useState<Lead[]>(initialLeads ?? []);
   const [businessType, setBusinessType] = useState("");
+  const [location, setLocation] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -432,16 +468,20 @@ function Dashboard() {
     setIsGenerating(true);
     setError(null);
     try {
-      await generateLeadsFn(trimmed);
+      await generateLeadsFn({
+        businessType: trimmed,
+        location: location.trim() || undefined,
+      });
       const allLeads = await fetchLeadsFn();
       setLeads(allLeads);
       setBusinessType("");
+      setLocation("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate leads");
     } finally {
       setIsGenerating(false);
     }
-  }, [businessType]);
+  }, [businessType, location]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -480,20 +520,36 @@ function Dashboard() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <DashboardHeader />
 
-        {/* Business Type Input */}
+        {/* Business Type + Location Input */}
         <div className="mb-8">
-          <div className="mx-auto flex max-w-xl flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={businessType}
-                onChange={(e) => setBusinessType(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g., plumbing, marketing agency, dentist..."
-                disabled={isGenerating}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
-              />
+          <div className="mx-auto flex max-w-2xl flex-col gap-3">
+            {/* Side-by-side inputs */}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="e.g., plumbing, marketing agency, dentist..."
+                  disabled={isGenerating}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
+                />
+              </div>
+              <div className="relative sm:w-56">
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="City or region (optional)"
+                  disabled={isGenerating}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
+                />
+              </div>
             </div>
+
+            {/* Generate button below */}
             <button
               onClick={handleGenerate}
               disabled={isGenerating || !businessType.trim()}
@@ -543,7 +599,7 @@ function Dashboard() {
             </button>
           </div>
           {error && (
-            <p className="mx-auto mt-3 max-w-xl text-center text-sm text-red-600">
+            <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-red-600">
               {error}
             </p>
           )}
