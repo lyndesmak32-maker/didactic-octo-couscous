@@ -9,9 +9,17 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+interface Usage {
+  leads_used: number;
+  leads_limit: number;
+}
+
 interface User {
   id: number;
   email: string;
+  plan?: string;
+  plan_activated_at?: string | null;
+  usage?: Usage;
 }
 
 interface AuthState {

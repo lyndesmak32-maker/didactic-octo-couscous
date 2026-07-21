@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiLeadsRouteImport } from './routes/api/leads'
@@ -17,6 +18,7 @@ import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiLeadsIndexRouteImport } from './routes/api/leads/index'
 import { Route as ApiLeadsGenerateRouteImport } from './routes/api/leads/generate'
 import { Route as ApiLeadsIdRouteImport } from './routes/api/leads/$id'
+import { Route as ApiAuthVerifyPaymentRouteImport } from './routes/api/auth/verify-payment'
 import { Route as ApiAuthRegisterRouteImport } from './routes/api/auth/register'
 import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
@@ -25,6 +27,11 @@ import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -62,6 +69,11 @@ const ApiLeadsIdRoute = ApiLeadsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiLeadsRoute,
 } as any)
+const ApiAuthVerifyPaymentRoute = ApiAuthVerifyPaymentRouteImport.update({
+  id: '/verify-payment',
+  path: '/verify-payment',
+  getParentRoute: () => ApiAuthRoute,
+} as any)
 const ApiAuthRegisterRoute = ApiAuthRegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -86,6 +98,7 @@ const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/register': typeof RegisterRoute
   '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
@@ -93,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/verify-payment': typeof ApiAuthVerifyPaymentRoute
   '/api/leads/$id': typeof ApiLeadsIdRoute
   '/api/leads/generate': typeof ApiLeadsGenerateRoute
   '/api/leads/': typeof ApiLeadsIndexRoute
@@ -100,12 +114,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/register': typeof RegisterRoute
   '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/verify-payment': typeof ApiAuthVerifyPaymentRoute
   '/api/leads/$id': typeof ApiLeadsIdRoute
   '/api/leads/generate': typeof ApiLeadsGenerateRoute
   '/api/leads': typeof ApiLeadsIndexRoute
@@ -114,6 +130,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/pricing': typeof PricingRoute
   '/register': typeof RegisterRoute
   '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/leads': typeof ApiLeadsRouteWithChildren
@@ -121,6 +138,7 @@ export interface FileRoutesById {
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/register': typeof ApiAuthRegisterRoute
+  '/api/auth/verify-payment': typeof ApiAuthVerifyPaymentRoute
   '/api/leads/$id': typeof ApiLeadsIdRoute
   '/api/leads/generate': typeof ApiLeadsGenerateRoute
   '/api/leads/': typeof ApiLeadsIndexRoute
@@ -130,6 +148,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/pricing'
     | '/register'
     | '/api/auth'
     | '/api/leads'
@@ -137,6 +156,7 @@ export interface FileRouteTypes {
     | '/api/auth/logout'
     | '/api/auth/me'
     | '/api/auth/register'
+    | '/api/auth/verify-payment'
     | '/api/leads/$id'
     | '/api/leads/generate'
     | '/api/leads/'
@@ -144,12 +164,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/pricing'
     | '/register'
     | '/api/auth'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
     | '/api/auth/register'
+    | '/api/auth/verify-payment'
     | '/api/leads/$id'
     | '/api/leads/generate'
     | '/api/leads'
@@ -157,6 +179,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/login'
+    | '/pricing'
     | '/register'
     | '/api/auth'
     | '/api/leads'
@@ -164,6 +187,7 @@ export interface FileRouteTypes {
     | '/api/auth/logout'
     | '/api/auth/me'
     | '/api/auth/register'
+    | '/api/auth/verify-payment'
     | '/api/leads/$id'
     | '/api/leads/generate'
     | '/api/leads/'
@@ -172,6 +196,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  PricingRoute: typeof PricingRoute
   RegisterRoute: typeof RegisterRoute
   ApiAuthRoute: typeof ApiAuthRouteWithChildren
   ApiLeadsRoute: typeof ApiLeadsRouteWithChildren
@@ -184,6 +209,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -235,6 +267,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLeadsIdRouteImport
       parentRoute: typeof ApiLeadsRoute
     }
+    '/api/auth/verify-payment': {
+      id: '/api/auth/verify-payment'
+      path: '/verify-payment'
+      fullPath: '/api/auth/verify-payment'
+      preLoaderRoute: typeof ApiAuthVerifyPaymentRouteImport
+      parentRoute: typeof ApiAuthRoute
+    }
     '/api/auth/register': {
       id: '/api/auth/register'
       path: '/register'
@@ -271,6 +310,7 @@ interface ApiAuthRouteChildren {
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiAuthMeRoute: typeof ApiAuthMeRoute
   ApiAuthRegisterRoute: typeof ApiAuthRegisterRoute
+  ApiAuthVerifyPaymentRoute: typeof ApiAuthVerifyPaymentRoute
 }
 
 const ApiAuthRouteChildren: ApiAuthRouteChildren = {
@@ -278,6 +318,7 @@ const ApiAuthRouteChildren: ApiAuthRouteChildren = {
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiAuthMeRoute: ApiAuthMeRoute,
   ApiAuthRegisterRoute: ApiAuthRegisterRoute,
+  ApiAuthVerifyPaymentRoute: ApiAuthVerifyPaymentRoute,
 }
 
 const ApiAuthRouteWithChildren =
@@ -302,6 +343,7 @@ const ApiLeadsRouteWithChildren = ApiLeadsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  PricingRoute: PricingRoute,
   RegisterRoute: RegisterRoute,
   ApiAuthRoute: ApiAuthRouteWithChildren,
   ApiLeadsRoute: ApiLeadsRouteWithChildren,

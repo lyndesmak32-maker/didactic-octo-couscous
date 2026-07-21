@@ -58,7 +58,7 @@ function AuthGuard({ children }: { children: ReactNode }) {
   // Determine if we're on an auth page (login or register)
   const currentPath = router.state.location.pathname;
   const isAuthPage =
-    currentPath === "/login" || currentPath === "/register";
+    currentPath === "/login" || currentPath === "/register" || currentPath === "/pricing";
 
   useEffect(() => {
     if (!isLoading && !user && !isAuthPage) {

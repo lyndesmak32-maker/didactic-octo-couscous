@@ -168,6 +168,83 @@ function getSourceIcon(source: string): string {
 
 // ─── Components ──────────────────────────────────────────────────────────────
 
+function PlanBanner() {
+  const { user } = useAuth();
+  const plan = user?.plan ?? "free";
+  const usage = user?.usage;
+  const leadsUsed = usage?.leads_used ?? 0;
+  const leadsLimit = usage?.leads_limit ?? 10;
+  const isAtLimit = leadsUsed >= leadsLimit && plan === "free";
+
+  const planNames: Record<string, string> = {
+    free: "Free",
+    starter: "Starter",
+    pro: "Pro",
+  };
+
+  const planColors: Record<string, string> = {
+    free: "bg-gray-100 text-gray-700 border-gray-200",
+    starter: "bg-blue-50 text-blue-700 border-blue-200",
+    pro: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  };
+
+  return (
+    <div className="mb-6">
+      <div
+        className={`mx-auto flex max-w-2xl flex-col items-center gap-3 rounded-xl border p-4 sm:flex-row sm:justify-between ${
+          planColors[plan] ?? planColors.free
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold shadow-sm">
+            {planNames[plan] ?? plan} plan
+          </span>
+          <span className="text-sm">
+            {leadsUsed} /{" "}
+            {leadsLimit === Infinity ? "∞" : leadsLimit} leads{" "}
+            {plan === "starter" ? "this month" : "used"}
+          </span>
+        </div>
+        {plan !== "pro" && (
+          <a
+            href="/pricing"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-indigo-600 shadow-sm transition-all hover:bg-indigo-50 hover:text-indigo-800"
+          >
+            Upgrade
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+              />
+            </svg>
+          </a>
+        )}
+      </div>
+      {isAtLimit && (
+        <div className="mx-auto mt-3 max-w-2xl rounded-xl border-2 border-amber-200 bg-amber-50 p-4 text-center">
+          <p className="text-sm font-semibold text-amber-800">
+            You&apos;ve used all your free leads!{" "}
+            <a
+              href="/pricing"
+              className="underline decoration-amber-400 underline-offset-2 transition-colors hover:text-amber-900"
+            >
+              Upgrade to Starter or Pro
+            </a>{" "}
+            to keep generating.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DashboardHeader() {
   const { user, logout } = useAuth();
 
@@ -196,9 +273,15 @@ function DashboardHeader() {
           </h1>
         </div>
 
-        {/* User badge */}
+        {/* User badge + nav */}
         {user && (
           <div className="flex items-center gap-3">
+            <a
+              href="/pricing"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            >
+              Pricing
+            </a>
             <span className="text-sm font-medium text-gray-600">
               {user.email}
             </span>
@@ -460,6 +543,13 @@ function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  const plan = user?.plan ?? "free";
+  const usage = user?.usage;
+  const leadsUsed = usage?.leads_used ?? 0;
+  const leadsLimit = usage?.leads_limit ?? 10;
+  const isAtLimit = leadsUsed >= leadsLimit && plan === "free";
 
   const handleGenerate = useCallback(async () => {
     const trimmed = businessType.trim();
@@ -520,90 +610,142 @@ function Dashboard() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <DashboardHeader />
 
-        {/* Business Type + Location Input */}
-        <div className="mb-8">
-          <div className="mx-auto flex max-w-2xl flex-col gap-3">
-            {/* Side-by-side inputs */}
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={businessType}
-                  onChange={(e) => setBusinessType(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="e.g., plumbing, marketing agency, dentist..."
-                  disabled={isGenerating}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
-                />
-              </div>
-              <div className="relative sm:w-56">
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="City or region (optional)"
-                  disabled={isGenerating}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
-                />
-              </div>
-            </div>
+        <PlanBanner />
 
-            {/* Generate button below */}
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating || !businessType.trim()}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-md disabled:active:scale-100"
-            >
-              {isGenerating ? (
-                <>
-                  <svg
-                    className="h-4 w-4 animate-spin"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6"
-                    />
-                  </svg>
-                  Generate Leads
-                </>
-              )}
-            </button>
+        {/* Business Type + Location Input */}
+        {isAtLimit ? (
+          /* Upgrade CTA when free plan limit reached */
+          <div className="mb-8">
+            <div className="mx-auto max-w-2xl rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-8 text-center shadow-sm">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+                <svg
+                  className="h-7 w-7 text-amber-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                  />
+                </svg>
+              </div>
+              <h3 className="mb-2 text-xl font-bold text-amber-900">
+                Free plan limit reached
+              </h3>
+              <p className="mb-6 text-sm text-amber-700">
+                You&apos;ve used all {leadsLimit} of your free leads. Upgrade to
+                continue generating qualified leads for your business.
+              </p>
+              <a
+                href="/pricing"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98]"
+              >
+                View Plans
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                  />
+                </svg>
+              </a>
+            </div>
           </div>
-          {error && (
-            <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-red-600">
-              {error}
-            </p>
-          )}
-        </div>
+        ) : (
+          /* Business Type + Location Input */
+          <div className="mb-8">
+            <div className="mx-auto flex max-w-2xl flex-col gap-3">
+              {/* Side-by-side inputs */}
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={businessType}
+                    onChange={(e) => setBusinessType(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="e.g., plumbing, marketing agency, dentist..."
+                    disabled={isGenerating}
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
+                  />
+                </div>
+                <div className="relative sm:w-56">
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="City or region (optional)"
+                    disabled={isGenerating}
+                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
+                  />
+                </div>
+              </div>
+
+              {/* Generate button below */}
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || !businessType.trim()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-md disabled:active:scale-100"
+              >
+                {isGenerating ? (
+                  <>
+                    <svg
+                      className="h-4 w-4 animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6"
+                      />
+                    </svg>
+                    Generate Leads
+                  </>
+                )}
+              </button>
+            </div>
+            {error && (
+              <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-red-600">
+                {error}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Stats + Leads or Empty State */}
         {hasLeads ? (

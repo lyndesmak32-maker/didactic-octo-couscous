@@ -221,6 +221,16 @@ function RegisterPage() {
             Log in
           </a>
         </p>
+
+        {/* Link to pricing */}
+        <p className="mt-3 text-center text-sm text-gray-400">
+          <a
+            href="/pricing"
+            className="font-medium text-gray-500 hover:text-indigo-600 transition-colors"
+          >
+            View pricing
+          </a>
+        </p>
       </div>
     </div>
   );
