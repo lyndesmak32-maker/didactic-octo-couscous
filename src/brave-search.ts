@@ -4,56 +4,81 @@ export interface BraveSearchResult {
   description: string;
 }
 
-const BRAVE_API_URL = "https://api.search.brave.com/res/v1/web/search";
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
 /**
- * Search for businesses using the Brave Search API.
- * Falls back gracefully — returns an empty array if the API key is missing
- * or any error occurs, so callers can fall back to simulated data.
+ * Search for businesses using the free OpenStreetMap Nominatim API.
+ * No API key required. Falls back gracefully — returns an empty array
+ * on any error so callers can fall back to simulated data.
  */
 export async function searchBusinesses(
   query: string,
   count: number = 10,
 ): Promise<BraveSearchResult[]> {
-  const apiKey = process.env.BRAVE_API_KEY;
-
-  if (!apiKey) {
-    return [];
-  }
-
   try {
-    const url = `${BRAVE_API_URL}?q=${encodeURIComponent(query)}&count=${count}`;
+    const url = `${NOMINATIM_URL}?q=${encodeURIComponent(query)}&format=json&limit=${count}&addressdetails=1`;
+
     const response = await fetch(url, {
       headers: {
+        "User-Agent": "LeadFlow/1.0 (lead-generation-app)",
         Accept: "application/json",
-        "Accept-Encoding": "gzip",
-        "X-Subscription-Token": apiKey,
       },
     });
 
     if (!response.ok) {
       console.error(
-        `Brave Search API error: ${response.status} ${response.statusText}`,
+        `Nominatim API error: ${response.status} ${response.statusText}`,
       );
       return [];
     }
 
-    const data = (await response.json()) as {
-      web?: { results?: Array<{ title: string; url: string; description: string }> };
-    };
+    const data = (await response.json()) as Array<{
+      name?: string;
+      display_name: string;
+      addresstype?: string;
+      address?: Record<string, string>;
+    }>;
 
-    const results = data.web?.results;
-    if (!results || results.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
       return [];
     }
 
-    return results.map((r) => ({
-      company_name: r.title,
-      website: r.url,
-      description: r.description,
-    }));
+    return data
+      .filter((r) => {
+        // Filter out results with no name or generic type-only names
+        const name = r.name?.trim();
+        if (!name) return false;
+        // Filter out names that are just the addresstype (e.g. "Restaurant", "Dentist")
+        if (r.addresstype && name.toLowerCase() === r.addresstype.toLowerCase())
+          return false;
+        return true;
+      })
+      .map((r) => {
+      // Use the name field if available, otherwise extract from display_name
+      const companyName =
+        r.name && r.name.trim()
+          ? r.name
+          : r.display_name.split(",")[0].trim();
+
+      // Build a description from the address
+      const parts: string[] = [];
+      if (r.address) {
+        if (r.address.road) parts.push(r.address.road);
+        if (r.address.city || r.address.town || r.address.village)
+          parts.push(r.address.city || r.address.town || r.address.village);
+        if (r.address.state) parts.push(r.address.state);
+      }
+      const description =
+        parts.length > 0 ? parts.join(", ") : r.display_name;
+
+      return {
+        company_name: companyName,
+        website: "",
+        description,
+      };
+    });
   } catch (err) {
-    console.error("Brave Search API request failed:", err);
+    console.error("Nominatim API request failed:", err);
     return [];
   }
 }

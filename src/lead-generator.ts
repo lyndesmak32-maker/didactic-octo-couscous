@@ -188,7 +188,10 @@ function leadFromSearchResult(
 ): Lead {
   const firstName = randomFrom(FIRST_NAMES);
   const lastName = randomFrom(LAST_NAMES);
-  const domain = extractDomain(result.website);
+  // Use the real website if available, otherwise generate a domain from company name
+  const domain = result.website
+    ? extractDomain(result.website)
+    : toCompanyDomain(result.company_name);
   const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${domain}`;
 
   return {
@@ -206,9 +209,9 @@ function leadFromSearchResult(
 }
 
 /**
- * Generate leads for a given business type. Tries Brave Search first for real
- * company data; falls back to simulated company names if the API is unavailable
- * or returns no results.
+ * Generate leads for a given business type. Tries Nominatim (OpenStreetMap) first
+ * for real company data; falls back to simulated company names if the API is
+ * unavailable or returns no results.
  */
 export async function generateLeads(
   businessType: string,
@@ -218,49 +221,48 @@ export async function generateLeads(
   const { industry } = resolveIndustry(businessType);
   const now = new Date().toISOString();
 
-  // Build the search query — append location if provided
+  // Build the search query — Nominatim uses simple keyword + location
   const query = location
-    ? `${businessType} companies in ${location}`
-    : `${businessType} companies`;
+    ? `${businessType} ${location}`
+    : businessType;
 
   // Try Brave Search for real company data
   const searchResults = await searchBusinesses(query, count);
 
-  if (searchResults.length > 0) {
-    const leads: Lead[] = [];
-    for (let i = 0; i < Math.min(searchResults.length, count); i++) {
-      leads.push(leadFromSearchResult(searchResults[i], industry, businessType, now));
-    }
-    return leads;
-  }
-
-  // Fallback: use simulated company data (keeps existing behaviour)
-  const { companies } = resolveIndustry(businessType);
   const leads: Lead[] = [];
 
-  for (let i = 0; i < count; i++) {
-    const companyName = companies[i % companies.length];
-    const firstName = randomFrom(FIRST_NAMES);
-    const lastName = randomFrom(LAST_NAMES);
-    const contactName = `${firstName} ${lastName}`;
-    const domain = toCompanyDomain(companyName);
-    const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${domain}`;
-    const phone = generatePhone();
-    const source = randomFrom(SOURCES);
-    const score = randomInt(40, 95);
+  // Use real results from Nominatim first
+  for (let i = 0; i < Math.min(searchResults.length, count); i++) {
+    leads.push(leadFromSearchResult(searchResults[i], industry, businessType, now));
+  }
 
-    leads.push({
-      company_name: companyName,
-      industry,
-      contact_name: contactName,
-      email,
-      phone,
-      source,
-      score,
-      business_type: businessType,
-      status: "new",
-      created_at: now,
-    });
+  // Fill remaining slots with simulated data
+  if (leads.length < count) {
+    const { companies } = resolveIndustry(businessType);
+    for (let i = leads.length; i < count; i++) {
+      const companyName = companies[i % companies.length];
+      const firstName = randomFrom(FIRST_NAMES);
+      const lastName = randomFrom(LAST_NAMES);
+      const contactName = `${firstName} ${lastName}`;
+      const domain = toCompanyDomain(companyName);
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${domain}`;
+      const phone = generatePhone();
+      const source = randomFrom(SOURCES);
+      const score = randomInt(40, 95);
+
+      leads.push({
+        company_name: companyName,
+        industry,
+        contact_name: contactName,
+        email,
+        phone,
+        source,
+        score,
+        business_type: businessType,
+        status: "new",
+        created_at: now,
+      });
+    }
   }
 
   return leads;
