@@ -1,29 +1,35 @@
-import { neon } from "@neondatabase/serverless";
+import { Database } from "bun:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
-/**
- * Server-only handle to the team's database (Neon serverless Postgres over HTTP).
- * The connection string comes from `DATABASE_URL`, which the owner connects via
- * the database card and which is injected into the sandbox and passed to the live
- * host on publish. Resolved lazily (per call, not at module load) so the site
- * still builds and serves before a database is connected — the error only
- * surfaces if a query actually runs without `DATABASE_URL`.
- *
- * Use it only inside a `createServerFn()` handler or an `src/routes/api/*` route
- * (never client code):
- *
- *   const getPosts = createServerFn().handler(async () => {
- *     const rows = await sql()`select id, title, created_at from posts`;
- *     // Coerce non-primitive columns (timestamps are JS Dates) to strings before
- *     // returning to the client, or React will refuse to render them:
- *     return rows.map((r) => ({ ...r, created_at: String(r.created_at) }));
- *   });
- */
-export const sql = () => {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error(
-      "DATABASE_URL is not set — connect a database (via the database card) before running queries.",
+const DB_PATH = "data/leads.db";
+
+let db: Database | null = null;
+
+export function getDb(): Database {
+  if (db) return db;
+
+  // Ensure data directory exists
+  mkdirSync(dirname(DB_PATH), { recursive: true });
+
+  db = new Database(DB_PATH);
+  db.exec("PRAGMA journal_mode = WAL");
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_name TEXT NOT NULL,
+      industry TEXT NOT NULL,
+      contact_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      source TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      business_type TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'new',
+      created_at TEXT NOT NULL
     );
-  }
-  return neon(url);
-};
+  `);
+
+  return db;
+}

@@ -11,6 +11,10 @@ cd "$(dirname "$0")"
 umask 002
 mkdir -p .run
 
+# The workspace starts as sources only (the coming-soon placeholder serves from
+# the image's pre-built copy), so the first publish installs deps here. No-op
+# once node_modules is current.
+bun install
 bun run build
 setsid nohup bun run start > .run/server.log 2>&1 < /dev/null &
 
