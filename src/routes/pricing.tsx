@@ -185,29 +185,27 @@ function PlanCard({
 
       {/* CTA */}
       <div className="mt-8">
-        {isCurrentPlan ? (
+        {isCurrentPlan && user ? (
           <button
             disabled
             className="w-full rounded-xl border-2 border-indigo-200 bg-indigo-50 px-6 py-3 text-sm font-semibold text-indigo-700"
           >
             Current Plan
           </button>
-        ) : plan.key === "free" ? (
-          user ? (
-            <button
-              disabled
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-6 py-3 text-sm font-semibold text-gray-400"
-            >
-              Current Plan
-            </button>
-          ) : (
-            <a
-              href="/register"
-              className="block w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98]"
-            >
-              Get Started Free
-            </a>
-          )
+        ) : plan.key === "free" && !user ? (
+          <a
+            href="/register"
+            className="block w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98]"
+          >
+            Get Started Free
+          </a>
+        ) : plan.key === "free" && user ? (
+          <button
+            disabled
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-6 py-3 text-sm font-semibold text-gray-400"
+          >
+            Current Plan
+          </button>
         ) : user ? (
           <a
             href={plan.stripeLink}
