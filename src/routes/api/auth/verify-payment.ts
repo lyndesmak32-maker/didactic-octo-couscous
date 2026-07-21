@@ -1,21 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getUserBySession, getSessionFromCookie, countUserLeads } from "../../../db.ts";
+import { getUserBySession, getSessionFromCookie, setUserPlan } from "../../../db.ts";
 
-function startOfMonth(): string {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-}
+const VALID_PLANS = ["starter", "pro"] as const;
 
-function getPlanLimit(plan: string): number {
-  if (plan === "pro") return Infinity;
-  if (plan === "starter") return 50;
-  return 10;
-}
-
-export const Route = createFileRoute("/api/auth/me")({
+export const Route = createFileRoute("/api/auth/verify-payment")({
   server: {
     handlers: {
-      GET: async ({ request }: { request: Request }) => {
+      POST: async ({ request }: { request: Request }) => {
         try {
           const sessionId = getSessionFromCookie(request);
           if (!sessionId) {
@@ -33,32 +24,33 @@ export const Route = createFileRoute("/api/auth/me")({
             );
           }
 
-          let leadsUsed: number;
-          if (user.plan === "starter") {
-            // Starter tracks monthly usage
-            leadsUsed = countUserLeads(user.id, startOfMonth());
-          } else {
-            // Free and Pro track lifetime (Pro is unlimited anyway)
-            leadsUsed = countUserLeads(user.id);
+          const body = (await request.json()) as { plan?: string };
+          const plan = body.plan;
+
+          if (!plan || !VALID_PLANS.includes(plan as typeof VALID_PLANS[number])) {
+            return new Response(
+              JSON.stringify({ error: 'plan must be "starter" or "pro"' }),
+              { status: 400, headers: { "Content-Type": "application/json" } },
+            );
           }
+
+          // For MVP: trust the client and set the plan immediately.
+          // In production, verify against Stripe webhook data here.
+          setUserPlan(user.id, plan);
 
           return new Response(
             JSON.stringify({
               user: {
                 id: user.id,
                 email: user.email,
-                plan: user.plan,
-                plan_activated_at: user.plan_activated_at,
-                usage: {
-                  leads_used: leadsUsed,
-                  leads_limit: getPlanLimit(user.plan),
-                },
+                plan,
+                plan_activated_at: new Date().toISOString(),
               },
             }),
             { headers: { "Content-Type": "application/json" } },
           );
         } catch (err) {
-          console.error("GET /api/auth/me error:", err);
+          console.error("POST /api/auth/verify-payment error:", err);
           return new Response(
             JSON.stringify({ error: "Internal server error" }),
             { status: 500, headers: { "Content-Type": "application/json" } },

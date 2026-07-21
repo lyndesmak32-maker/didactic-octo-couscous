@@ -28,7 +28,8 @@ export function getDb(): Database {
       score INTEGER NOT NULL,
       business_type TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'new',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      user_id INTEGER REFERENCES users(id)
     );
   `);
 
@@ -50,23 +51,81 @@ export function getDb(): Database {
     );
   `);
 
+  // Migrations: add columns if they don't exist (ignore errors if already added)
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'");
+  } catch { /* column already exists */ }
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN plan_activated_at TEXT");
+  } catch { /* column already exists */ }
+  try {
+    db.exec("ALTER TABLE leads ADD COLUMN user_id INTEGER REFERENCES users(id)");
+  } catch { /* column already exists */ }
+
   return db;
+}
+
+export function getSessionFromCookie(request: Request): string | null {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(/session=([^;]+)/);
+  return match ? match[1] : null;
 }
 
 export function getUserBySession(
   sessionId: string,
-): { id: number; email: string } | null {
+): { id: number; email: string; plan: string; plan_activated_at: string | null } | null {
   const database = getDb();
   const row = database
     .prepare(
-      `SELECT u.id, u.email
+      `SELECT u.id, u.email, u.plan, u.plan_activated_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.id = ? AND s.expires_at > ?`,
     )
     .get(sessionId, new Date().toISOString()) as
-    | { id: number; email: string }
+    | { id: number; email: string; plan: string; plan_activated_at: string | null }
     | undefined;
 
   return row ?? null;
+}
+
+export function getUserPlan(
+  userId: number,
+): { plan: string; plan_activated_at: string | null } {
+  const database = getDb();
+  const row = database
+    .prepare("SELECT plan, plan_activated_at FROM users WHERE id = ?")
+    .get(userId) as { plan: string; plan_activated_at: string | null } | undefined;
+
+  if (!row) throw new Error(`User ${userId} not found`);
+  return row;
+}
+
+export function setUserPlan(userId: number, plan: string): void {
+  const database = getDb();
+  const now = new Date().toISOString();
+  database
+    .prepare("UPDATE users SET plan = ?, plan_activated_at = ? WHERE id = ?")
+    .run(plan, now, userId);
+}
+
+export function countUserLeads(userId: number, since?: string): number {
+  const database = getDb();
+  if (since) {
+    const row = database
+      .prepare("SELECT COUNT(*) as count FROM leads WHERE user_id = ? AND created_at >= ?")
+      .get(userId, since) as { count: number };
+    return row.count;
+  }
+  const row = database
+    .prepare("SELECT COUNT(*) as count FROM leads WHERE user_id = ?")
+    .get(userId) as { count: number };
+  return row.count;
+}
+
+export function countTotalLeads(): number {
+  const database = getDb();
+  const row = database.prepare("SELECT COUNT(*) as count FROM leads").get() as { count: number };
+  return row.count;
 }
