@@ -1,3 +1,5 @@
+import { searchBusinesses } from "./brave-search.ts";
+
 export interface Lead {
   company_name: string;
   industry: string;
@@ -84,6 +86,22 @@ function toCompanyDomain(name: string): string {
     + ".com";
 }
 
+/**
+ * Extract a clean domain from a URL (e.g. "https://www.example.com/about" → "example.com").
+ */
+function extractDomain(url: string): string {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.replace(/^www\./, "");
+  } catch {
+    // If URL parsing fails, strip protocol and path manually
+    return url
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0];
+  }
+}
+
 function generatePhone(): string {
   const area = randomInt(200, 999);
   const prefix = randomInt(200, 999);
@@ -159,9 +177,65 @@ function resolveIndustry(businessType: string): { industry: string; companies: s
   ]};
 }
 
-export function generateLeads(businessType: string, count: number = 10): Lead[] {
-  const { industry, companies } = resolveIndustry(businessType);
+/**
+ * Build a synthetic Lead from a real search result.
+ */
+function leadFromSearchResult(
+  result: { company_name: string; website: string; description: string },
+  industry: string,
+  businessType: string,
+  now: string,
+): Lead {
+  const firstName = randomFrom(FIRST_NAMES);
+  const lastName = randomFrom(LAST_NAMES);
+  const domain = extractDomain(result.website);
+  const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${domain}`;
+
+  return {
+    company_name: result.company_name,
+    industry,
+    contact_name: `${firstName} ${lastName}`,
+    email,
+    phone: generatePhone(),
+    source: randomFrom(SOURCES),
+    score: randomInt(40, 95),
+    business_type: businessType,
+    status: "new",
+    created_at: now,
+  };
+}
+
+/**
+ * Generate leads for a given business type. Tries Brave Search first for real
+ * company data; falls back to simulated company names if the API is unavailable
+ * or returns no results.
+ */
+export async function generateLeads(
+  businessType: string,
+  count: number = 10,
+  location?: string,
+): Promise<Lead[]> {
+  const { industry } = resolveIndustry(businessType);
   const now = new Date().toISOString();
+
+  // Build the search query — append location if provided
+  const query = location
+    ? `${businessType} companies in ${location}`
+    : `${businessType} companies`;
+
+  // Try Brave Search for real company data
+  const searchResults = await searchBusinesses(query, count);
+
+  if (searchResults.length > 0) {
+    const leads: Lead[] = [];
+    for (let i = 0; i < Math.min(searchResults.length, count); i++) {
+      leads.push(leadFromSearchResult(searchResults[i], industry, businessType, now));
+    }
+    return leads;
+  }
+
+  // Fallback: use simulated company data (keeps existing behaviour)
+  const { companies } = resolveIndustry(businessType);
   const leads: Lead[] = [];
 
   for (let i = 0; i < count; i++) {

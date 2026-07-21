@@ -7,7 +7,10 @@ export const Route = createFileRoute("/api/leads/generate")({
     handlers: {
       POST: async ({ request }: { request: Request }) => {
         try {
-          const body = (await request.json()) as { businessType?: string };
+          const body = (await request.json()) as {
+            businessType?: string;
+            location?: string;
+          };
           const businessType = body.businessType;
 
           if (!businessType || typeof businessType !== "string") {
@@ -17,7 +20,12 @@ export const Route = createFileRoute("/api/leads/generate")({
             );
           }
 
-          const leads = generateLeads(businessType, 10);
+          const location =
+            typeof body.location === "string" && body.location.trim().length > 0
+              ? body.location.trim()
+              : undefined;
+
+          const leads = await generateLeads(businessType, 10, location);
           const db = getDb();
           const insert = db.prepare(`
             INSERT INTO leads (company_name, industry, contact_name, email, phone, source, score, business_type, status, created_at)
