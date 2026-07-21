@@ -134,6 +134,14 @@ function PlanCard({
 }) {
   const { user } = useAuth();
 
+  // Build Stripe link with prefilled_email when user is logged in
+  const getStripeLinkWithEmail = () => {
+    if (!user?.email || !plan.stripeLink) return plan.stripeLink;
+    const url = new URL(plan.stripeLink);
+    url.searchParams.set("prefilled_email", user.email);
+    return url.toString();
+  };
+
   return (
     <div
       className={`relative flex flex-col rounded-2xl border-2 bg-white p-8 shadow-sm transition-shadow hover:shadow-lg ${
@@ -208,7 +216,7 @@ function PlanCard({
           </button>
         ) : user ? (
           <a
-            href={plan.stripeLink}
+            href={getStripeLinkWithEmail()}
             target="_blank"
             rel="noopener noreferrer"
             className={`block rounded-xl px-6 py-3 text-center text-sm font-semibold shadow-md transition-all active:scale-[0.98] ${
@@ -238,7 +246,67 @@ function PlanCard({
   );
 }
 
-// ─── Upgrade Activation Form ──────────────────────────────────────────────
+// ─── Already Purchased Section ─────────────────────────────────────────────
+
+function AlreadyPurchasedSection() {
+  const { user } = useAuth();
+
+  return (
+    <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h3 className="text-base font-semibold text-gray-900">
+        Already purchased?
+      </h3>
+      <p className="mt-1 text-sm text-gray-500">
+        After completing your Stripe payment, click a plan below to activate it
+        instantly.
+      </p>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <a
+          href={`/payment-success?plan=starter${
+            user ? "" : ""
+          }`}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-5 py-2.5 text-sm font-semibold text-indigo-700 transition-all hover:bg-indigo-100 hover:border-indigo-300 active:scale-[0.98]"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4.5 12.75l6 6 9-13.5"
+            />
+          </svg>
+          Activate Starter
+        </a>
+        <a
+          href="/payment-success?plan=pro"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-5 py-2.5 text-sm font-semibold text-indigo-700 transition-all hover:bg-indigo-100 hover:border-indigo-300 active:scale-[0.98]"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4.5 12.75l6 6 9-13.5"
+            />
+          </svg>
+          Activate Pro
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ─── Upgrade Activation Form (less prominent, manual fallback) ─────────────
 
 function UpgradeActivation() {
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro">(
@@ -249,6 +317,7 @@ function UpgradeActivation() {
     text: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const navigate = useNavigate();
 
   const handleActivate = useCallback(
@@ -276,10 +345,11 @@ function UpgradeActivation() {
 
         setMessage({
           type: "success",
-          text: `${selectedPlan === "starter" ? "Starter" : "Pro"} plan activated! Redirecting to dashboard...`,
+          text: `${
+            selectedPlan === "starter" ? "Starter" : "Pro"
+          } plan activated! Redirecting to dashboard...`,
         });
 
-        // Redirect after a short delay
         setTimeout(() => {
           navigate({ to: "/", replace: true });
         }, 1500);
@@ -296,81 +366,89 @@ function UpgradeActivation() {
   );
 
   return (
-    <div className="mt-12 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-      <h3 className="text-lg font-bold text-gray-900">
-        Already purchased? Activate your plan
-      </h3>
-      <p className="mt-1 text-sm text-gray-500">
-        After completing your Stripe payment, select your plan below and click
-        activate.
-      </p>
-
-      <form onSubmit={handleActivate} className="mt-6 space-y-4">
-        <div>
-          <label
-            htmlFor="plan-select"
-            className="mb-1.5 block text-sm font-medium text-gray-700"
-          >
-            Select plan
-          </label>
-          <select
-            id="plan-select"
-            value={selectedPlan}
-            onChange={(e) =>
-              setSelectedPlan(e.target.value as "starter" | "pro")
-            }
-            disabled={isSubmitting}
-            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition-all focus:border-indigo-400 focus:outline-none focus:ring-3 focus:ring-indigo-100 disabled:opacity-60"
-          >
-            <option value="starter">Starter — $99/year</option>
-            <option value="pro">Pro — $199/year</option>
-          </select>
-        </div>
-
+    <div className="mt-6 border-t border-gray-200 pt-6">
+      {!showForm ? (
         <button
-          type="submit"
-          disabled={isSubmitting}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all hover:from-indigo-700 hover:to-blue-700 hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => setShowForm(true)}
+          className="text-xs font-medium text-gray-400 underline decoration-gray-300 underline-offset-2 transition-colors hover:text-gray-600 hover:decoration-gray-400"
         >
-          {isSubmitting ? (
-            <>
-              <svg
-                className="h-4 w-4 animate-spin"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-              Activating...
-            </>
-          ) : (
-            "Activate"
-          )}
+          Manual activation (dropdown)
         </button>
-      </form>
+      ) : (
+        <div>
+          <button
+            onClick={() => setShowForm(false)}
+            className="mb-3 text-xs font-medium text-gray-400 underline decoration-gray-300 underline-offset-2 transition-colors hover:text-gray-600 hover:decoration-gray-400"
+          >
+            Hide manual activation
+          </button>
+          <form onSubmit={handleActivate} className="space-y-3">
+            <div>
+              <label
+                htmlFor="plan-select"
+                className="mb-1 block text-xs font-medium text-gray-600"
+              >
+                Select plan
+              </label>
+              <select
+                id="plan-select"
+                value={selectedPlan}
+                onChange={(e) =>
+                  setSelectedPlan(e.target.value as "starter" | "pro")
+                }
+                disabled={isSubmitting}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm transition-all focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+              >
+                <option value="starter">Starter — $99/year</option>
+                <option value="pro">Pro — $199/year</option>
+              </select>
+            </div>
 
-      {/* Success/error message */}
-      {message && (
-        <div
-          className={`mt-4 rounded-xl p-4 text-sm font-medium ${
-            message.type === "success"
-              ? "bg-emerald-50 text-emerald-700"
-              : "bg-red-50 text-red-600"
-          }`}
-        >
-          {message.text}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-xs font-medium text-gray-700 transition-all hover:bg-gray-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg
+                    className="h-3.5 w-3.5 animate-spin"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  Activating...
+                </>
+              ) : (
+                "Activate"
+              )}
+            </button>
+          </form>
+
+          {message && (
+            <div
+              className={`mt-3 rounded-lg p-3 text-xs font-medium ${
+                message.type === "success"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-red-50 text-red-600"
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -466,19 +544,18 @@ function PricingPage() {
           ))}
         </div>
 
-        {/* Note for non-logged-in users */}
+        {/* After-purchase instructions */}
         {!user && (
-          <p className="mt-8 text-center text-sm text-gray-400">
-            After purchase, go to{" "}
-            <span className="font-medium text-gray-600">
-              Account &rarr; Upgrade
-            </span>{" "}
-            to activate your plan.
-          </p>
+          <AlreadyPurchasedSection />
         )}
 
-        {/* Upgrade activation (only for logged-in users) */}
-        {user && <UpgradeActivation />}
+        {/* For logged-in users: already purchased + manual activation */}
+        {user && (
+          <div className="mt-8 text-center">
+            <AlreadyPurchasedSection />
+            <UpgradeActivation />
+          </div>
+        )}
 
         {/* Footer */}
         <footer className="mt-16 border-t border-gray-200 pt-6 text-center text-xs text-gray-400">
